@@ -1,0 +1,23 @@
+<assembly xmlns="urn:schemas-microsoft-com:asm.v1" manifestVersion="1.0">
+  <dependency>
+    <dependentAssembly>
+      <assemblyIdentity
+        type="win32"
+        name="Microsoft.Windows.Common-Controls"
+        version="6.0.0.0"
+        processorArchitecture="*"
+        publicKeyToken="6595b64144ccf1df"
+        language="*"
+      />
+    </dependentAssembly>
+  </dependency>
+  <!--
+    Windows 蓝牙能力声明：btleplug 在 Windows 上走 WinRT Bluetooth LE API，
+    必须在 EXE 应用清单中声明 bluetooth 设备能力，否则 start_scan / connect
+    会返回“拒绝访问”，导致桌面端在 Windows 上永远无法连接真实心率设备
+    （静默回退到模拟源）。macOS 的等价物是 NSBluetoothAlwaysUsageDescription。
+  -->
+  <Capabilities xmlns="http://schemas.microsoft.com/SMI/2008/WindowsSettings">
+    <Capability Name="bluetooth" />
+  </Capabilities>
+</assembly>

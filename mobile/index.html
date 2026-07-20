@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no" />
+  <meta name="theme-color" content="#0E1116" />
+  <title>怦然 PulseCast · 移动端</title>
+  <link rel="stylesheet" href="design-tokens.css" />
+  <link rel="stylesheet" href="mobile.css" />
+</head>
+<body>
+  <!-- 顶部连接状态条（全局） -->
+  <div id="connbar" class="connbar" data-status="connecting">
+    <span class="pc-status-dot"></span>
+    <span id="connbar-text">连接中…</span>
+    <button id="btn-config" class="connbar-gear" aria-label="服务器设置">⚙</button>
+  </div>
+
+  <!-- 控制事件提示条（远端切换场景 / 闪烁 / 改阈值时弹出） -->
+  <div id="ctl-toast" class="ctl-toast" hidden></div>
+
+  <main id="app">
+
+    <!-- ════════ 屏 1：连接设备 ════════ -->
+    <section class="screen" id="screen-connect" data-screen="connect">
+      <header class="screen-head">
+        <h1>连接设备</h1>
+        <p class="screen-sub">选择心率设备，一键直连 · 本地蓝牙，无需登录</p>
+      </header>
+
+      <div class="scan-banner">
+        <div class="radar"><span class="radar-ring r1"></span><span class="radar-ring r2"></span><span class="radar-core"></span></div>
+        <div class="scan-text">
+          <div class="scan-title" id="scan-title">正在扫描附近设备…</div>
+          <div class="scan-sub" id="scan-sub">确保手表已开启“心率广播”</div>
+        </div>
+      </div>
+
+      <div class="section-title">可用设备</div>
+      <div id="device-list" class="device-list"><!-- 由 JS 渲染 --></div>
+
+      <div class="footer-note" id="footer-note">找不到设备？查看帮助 →</div>
+    </section>
+
+    <!-- ════════ 屏 2：心率实况 ════════ -->
+    <section class="screen" id="screen-live" data-screen="live" hidden>
+      <header class="screen-head live-head">
+        <h1>心率实况</h1>
+        <span class="live-chip"><span class="live-dot"></span><span id="live-chip-text">实时直播中</span></span>
+      </header>
+
+      <div class="hero">
+        <div class="beat-badge"><span class="beat-dot"></span><span id="hero-beat">心跳同步 · 延迟 0.3s</span></div>
+        <div class="bpm-row">
+          <svg class="heart" viewBox="0 0 46 46" width="46" height="46"><path d="M23 40S6 29 6 16.5A9.5 9.5 0 0 1 23 10 9.5 9.5 0 0 1 40 16.5C40 29 23 40 23 40Z" fill="var(--accent)"/></svg>
+          <span class="pc-bpm-num" id="bpm-num">--</span>
+        </div>
+        <div class="bpm-label">BPM · 当前心率</div>
+        <canvas id="ecg" class="ecg" width="296" height="56"></canvas>
+      </div>
+
+      <div class="stats-row">
+        <div class="stat"><div class="stat-v" id="stat-avg">--</div><div class="stat-l">平均</div></div>
+        <div class="stat"><div class="stat-v" id="stat-max">--</div><div class="stat-l">最高</div></div>
+        <div class="stat"><div class="stat-v" id="stat-time">--:--</div><div class="stat-l">直播时长</div></div>
+      </div>
+
+      <div class="alert-card">
+        <div class="alert-info">
+          <div class="alert-t">心率区间提醒</div>
+          <div class="alert-m">低于 <span id="th-low">55</span> 或高于 <span id="th-high">150</span> BPM 时告警</div>
+        </div>
+        <div class="pc-toggle" id="tg-alert" role="switch" aria-checked="true"></div>
+      </div>
+
+      <div class="share-card">
+        <div class="qr">▦</div>
+        <div class="share-info">
+          <div class="share-t">把心率推给 OBS / 直播间</div>
+          <div class="share-s">扫码或复制串流地址 ws://<span id="share-ip">localhost</span>:<span id="share-port">4567</span></div>
+        </div>
+        <button class="pc-btn" id="btn-share">分享</button>
+      </div>
+
+      <!-- 控制中心：手机指挥桌面 OBS -->
+      <div class="control-card">
+        <div class="control-head">
+          <div class="control-t">远程控制 · 桌面 OBS</div>
+          <div class="control-m">手机一键切换场景 / 高光闪烁 / 实时改阈值</div>
+        </div>
+        <div class="section-title sm">切换场景</div>
+        <div class="scene-chips">
+          <button class="scene-chip" data-scene="亲密时刻">亲密时刻</button>
+          <button class="scene-chip" data-scene="高能时刻">高能时刻</button>
+          <button class="scene-chip" data-scene="平静时刻">平静时刻</button>
+          <button class="scene-chip" data-scene="战斗时刻">战斗时刻</button>
+        </div>
+        <button class="pc-btn block" id="btn-flash">✨ 高光闪烁</button>
+        <div class="section-title sm">实时阈值</div>
+        <div class="thr-row">
+          <div class="thr-ctl">
+            <span class="thr-l">高</span>
+            <button class="thr-step thr-minus" data-thr="high" aria-label="降低高阈值">−</button>
+            <span class="thr-v" id="ctl-high">150</span>
+            <button class="thr-step thr-plus" data-thr="high" aria-label="升高高阈值">+</button>
+          </div>
+          <div class="thr-ctl">
+            <span class="thr-l">低</span>
+            <button class="thr-step thr-minus" data-thr="low" aria-label="降低低阈值">−</button>
+            <span class="thr-v" id="ctl-low">55</span>
+            <button class="thr-step thr-plus" data-thr="low" aria-label="升高低阈值">+</button>
+          </div>
+        </div>
+        <button class="pc-btn-ghost block" id="btn-send-thr">应用到桌面端</button>
+      </div>
+    </section>
+
+    <!-- ════════ 屏 3：设置 ════════ -->
+    <section class="screen" id="screen-settings" data-screen="settings" hidden>
+      <header class="screen-head">
+        <h1>设置</h1>
+      </header>
+
+      <div class="section-title">外观主题</div>
+      <div class="segmented" id="seg-theme">
+        <button data-v="dark" class="active">深色</button>
+        <button data-v="light">浅色</button>
+        <button data-v="auto">跟随系统</button>
+      </div>
+
+      <div class="section-title">悬浮叠层样式</div>
+      <div class="style-row" id="style-row">
+        <button class="style-chip active" data-v="pill"><span class="chip-prev pill"></span>心跳药丸</button>
+        <button class="style-chip" data-v="ecg"><span class="chip-prev ecg"></span>ECG 波形</button>
+        <button class="style-chip" data-v="num"><span class="chip-prev num">128</span>极简数字</button>
+      </div>
+
+      <div class="settings-group">
+        <div class="row"><span>强调色</span><span class="accent-dot"></span></div>
+        <div class="row"><span>VRChat OSC 输出</span><div class="pc-toggle" id="tg-osc" role="switch" aria-checked="false"></div></div>
+        <div class="row"><span>心率区间提醒</span><div class="pc-toggle" id="tg-alert2" role="switch" aria-checked="true"></div></div>
+        <div class="row"><span>服务端口</span><span class="mono" id="set-port">4567</span></div>
+        <div class="row"><span>开机自启</span><div class="pc-toggle" id="tg-auto" role="switch" aria-checked="true"></div></div>
+        <div class="row"><span>语言</span><span class="muted">简体中文 ›</span></div>
+      </div>
+
+      <div class="version">怦然 PulseCast v0.1.0 · MIT 开源</div>
+    </section>
+  </main>
+
+  <!-- 底部药丸标签栏 -->
+  <nav class="tabbar">
+    <button class="tab active" data-go="connect"><span class="tab-ic">📡</span><span>设备</span></button>
+    <button class="tab" data-go="live"><span class="tab-ic">❤</span><span>实况</span></button>
+    <button class="tab" data-go="settings"><span class="tab-ic">⚙</span><span>设置</span></button>
+  </nav>
+
+  <!-- 服务器地址设置弹层 -->
+  <div id="cfg-modal" class="modal" hidden>
+    <div class="modal-card pc-card">
+      <h2>串流服务器</h2>
+      <p class="muted">填写运行「怦然」桌面端的电脑 IP（手机与电脑需同一局域网）。</p>
+      <label>服务器地址</label>
+      <input id="cfg-host" type="text" placeholder="localhost 或 192.168.x.x" />
+      <label>端口</label>
+      <input id="cfg-port" type="number" placeholder="4567" />
+      <div class="modal-actions">
+        <button class="pc-btn-ghost" id="cfg-cancel">取消</button>
+        <button class="pc-btn" id="cfg-save">保存并重连</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="mobile.js"></script>
+</body>
+</html>

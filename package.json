@@ -1,0 +1,17 @@
+{
+  "name": "pulsecast",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "怦然 PulseCast · 主播心率直播伴侣（Tauri 前端 + 本地服务）",
+  "scripts": {
+    "dev": "node dev-server.mjs",
+    "serve": "node dev-server.mjs",
+    "serve:mobile": "node -e \"const http=require('http'),fs=require('fs'),p=require('path');const r=http.createServer((q,s)=>{let f=q.url.split('?')[0];if(f==='/')f='/mobile/index.html';const fp=p.join(__dirname,f);fs.readFile(fp,(e,d)=>{if(e){s.statusCode=404;s.end('not found');return;}const ext=p.extname(fp);s.setHeader('Content-Type',ext==='.html'?'text/html':ext==='.css'?'text/css':ext==='.js'?'text/javascript':'text/plain');s.end(d);});});r.listen(4568,()=>console.log('mobile preview on http://localhost:4568'));\"",
+    "tauri:ios": "tauri build --config tauri.mobile.conf.json --target aarch64-apple-ios",
+    "tauri:android": "tauri build --config tauri.mobile.conf.json --target aarch64-linux-android"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  }
+}

@@ -1,0 +1,162 @@
+/* 怦然 PulseCast · Tauri 前端设计系统变量
+ * 源自 design-tokens.md（画布 fileId 705583149734972）
+ * 供桌面 App 主界面与 OBS 浏览器源共用同一套视觉语言。
+ * 心率只做显示，不做区间分级 —— 状态色替代原心率区间。
+ */
+
+:root {
+  /* ── 品牌 / 强调 ── */
+  --accent: #FF4D6D;                 /* 主强调色（主播粉）：CTA / 心率数字 / Logo */
+  --accent-soft: rgba(255, 77, 109, 0.16); /* 发光层 / 高亮背景 */
+
+  /* ── 表面 Surface（暗主题，主播场景主用） ── */
+  --bg-base: #0E1116;                /* 页面 / 画布底色 */
+  --surface: #161B22;                /* 卡片 / 面板 */
+  --surface-2: #1E2128;              /* 输入框 / 次级面板 */
+  --surface-3: #2A2D35;              /* 悬浮 tooltip / 弹层 */
+  --border: #3A3F4A;                 /* 分隔线 / 未激活控件 */
+
+  /* ── 文本 Text ── */
+  --text-primary: #E8EAED;
+  --text-secondary: #9BA1A8;
+  --text-tertiary: #6B7280;
+
+  /* ── 浅面（亮态场景：浅色任务栏 / 浅背景） ── */
+  --surface-light: #F5F6F8;
+  --text-on-light: #18191C;
+
+  /* ── 连接状态色 Status（替代原心率区间） ── */
+  --status-connecting: #9BA1A8;      /* 连接中（灰） */
+  --status-live: #36C28C;            /* 实时（绿） */
+  --status-device-lost: #F2994A;     /* 设备丢失（橙） */
+  --status-error: #EB5757;           /* 错误（红） */
+
+  /* ── 国内直播平台色 ── */
+  --plat-douyin: #FF4D6D;            /* 抖音 */
+  --plat-kuaishou: #FF6B35;          /* 快手 */
+  --plat-bilibili: #00AEEC;          /* B站 */
+  --plat-douyu: #FF9500;             /* 斗鱼 */
+  --plat-huya: #FF3B3B;              /* 虎牙 */
+
+  /* ── 字体 Typography ── */
+  --font-cn: "Sarasa Gothic SC", "PingFang SC", "Microsoft YaHei", "Noto Sans SC", sans-serif;
+  --font-num: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+
+  /* ── 圆角 Radius ── */
+  --radius-card: 14px;               /* 卡片 / 面板 */
+  --radius-pill: 40px;               /* 心率叠层药丸 */
+  --radius-dot: 10px;                /* 圆点 / 图标按钮 */
+  --radius-toggle: 12px;             /* 开关 */
+
+  /* ── 间距 Spacing ── */
+  --space-xs: 8px;
+  --space-sm: 12px;
+  --space-md: 16px;
+  --space-lg: 24px;
+
+  /* ── 阴影 Shadow ── */
+  --shadow-card: 0 8px 24px rgba(0, 0, 0, 0.35);
+  --shadow-glow: 0 0 24px var(--accent-soft);
+}
+
+/* ─────────── 通用组件类 ─────────── */
+
+/* 卡片 */
+.pc-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+  padding: var(--space-md);
+}
+
+/* 主按钮 */
+.pc-btn {
+  font-family: var(--font-cn);
+  font-weight: 600;
+  font-size: 14px;
+  color: #fff;
+  background: var(--accent);
+  border: none;
+  border-radius: var(--radius-dot);
+  padding: 10px 18px;
+  cursor: pointer;
+  transition: filter 0.15s ease, transform 0.05s ease;
+}
+.pc-btn:hover { filter: brightness(1.08); }
+.pc-btn:active { transform: translateY(1px); }
+
+/* 次级按钮 */
+.pc-btn-ghost {
+  font-family: var(--font-cn);
+  font-weight: 500;
+  font-size: 14px;
+  color: var(--text-primary);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-dot);
+  padding: 10px 18px;
+  cursor: pointer;
+}
+
+/* 状态圆点 */
+.pc-status-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--status-connecting);
+  box-shadow: 0 0 8px currentColor;
+}
+.pc-status-dot[data-status="connecting"] { background: var(--status-connecting); color: var(--status-connecting); }
+.pc-status-dot[data-status="live"]       { background: var(--status-live); color: var(--status-live); }
+.pc-status-dot[data-status="device_lost"]{ background: var(--status-device-lost); color: var(--status-device-lost); }
+.pc-status-dot[data-status="error"]      { background: var(--status-error); color: var(--status-error); }
+
+/* 开关 toggle */
+.pc-toggle {
+  width: 44px;
+  height: 24px;
+  border-radius: var(--radius-toggle);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  position: relative;
+  cursor: pointer;
+  transition: background 0.18s ease;
+}
+.pc-toggle::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--text-secondary);
+  transition: transform 0.18s ease, background 0.18s ease;
+}
+.pc-toggle[aria-checked="true"] { background: var(--accent); }
+.pc-toggle[aria-checked="true"]::after { transform: translateX(20px); background: #fff; }
+
+/* 区块标题 */
+.pc-section-title {
+  font-family: var(--font-cn);
+  font-weight: 600;
+  font-size: 16px;
+  color: var(--text-primary);
+}
+
+/* 次级标签 */
+.pc-label {
+  font-family: var(--font-cn);
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+/* 大号 BPM 数字 */
+.pc-bpm-num {
+  font-family: var(--font-num);
+  font-weight: 700;
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}

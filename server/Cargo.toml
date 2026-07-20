@@ -1,0 +1,33 @@
+[package]
+name = "pulsecast-server"
+version = "0.1.0"
+edition = "2021"
+description = "怦然 PulseCast · 内嵌本地 HTTP/WS 心率服务（替代 dev-server.mjs，端口 4567）"
+
+[lib]
+name = "pulsecast_server"
+path = "src/lib.rs"
+
+[[bin]]
+name = "pulsecast-server"
+path = "src/main.rs"
+
+[dependencies]
+axum = { version = "0.8", features = ["ws"] }
+tokio = { version = "1", features = ["full"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+futures-util = "0.3"
+anyhow = "1"
+clap = { version = "4", features = ["derive"] }
+log = "0.4"
+env_logger = "0.11"
+
+# 真实 BLE 心率读取（标准 HR Profile 0x180D / 0x2A37）。
+# 默认不编译以加速开发验证；启用：cargo run -p pulsecast-server --features ble
+btleplug = { version = "0.12", optional = true }
+uuid = { version = "1", optional = true }
+
+[features]
+default = []
+ble = ["btleplug", "uuid"]

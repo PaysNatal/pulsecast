@@ -1,0 +1,34 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "怦然 PulseCast",
+  "version": "0.1.0",
+  "identifier": "com.pulsecast.app",
+  "build": {
+    "frontendDist": "../dist",
+    "devUrl": "http://localhost:4567",
+    "beforeDevCommand": "node dev-server.mjs",
+    "beforeBuildCommand": "node build-frontend.mjs"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "怦然 PulseCast",
+        "width": 960,
+        "height": 640,
+        "resizable": true,
+        "fullscreen": false
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "icon": ["icons/icon.png", "icons/icon.ico", "icons/icon.icns"],
+    "macOS": {
+      "infoPlist": "./Info.plist"
+    }
+  }
+}

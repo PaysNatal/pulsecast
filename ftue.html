@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>怦然 PulseCast · 欢迎</title>
+<link rel="stylesheet" href="design-tokens.css" />
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: var(--font-cn);
+    background: var(--bg-base);
+    color: var(--text-primary);
+    height: 100vh; display: flex; align-items: center; justify-content: center;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wizard {
+    width: 760px; max-width: 94vw;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 18px; box-shadow: var(--shadow-card);
+    padding: 32px 38px 28px;
+  }
+
+  .brand { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
+  .brand svg { color: var(--accent); width: 26px; height: 26px; }
+  .brand .name { font-size: 20px; font-weight: 700; }
+  .tagline { font-size: 13px; color: var(--text-secondary); margin-bottom: 24px; }
+
+  /* 步骤指示 */
+  .steps { display: flex; align-items: center; margin-bottom: 28px; }
+  .step { display: flex; align-items: center; gap: 10px; flex: none; }
+  .step .num {
+    width: 30px; height: 30px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-family: var(--font-num); font-weight: 700; font-size: 14px;
+    background: var(--surface-2); color: var(--text-secondary); border: 1px solid var(--border);
+  }
+  .step.active .num { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .step.done .num { background: var(--status-live); color: #fff; border-color: var(--status-live); }
+  .step .lbl { font-size: 13px; color: var(--text-secondary); }
+  .step.active .lbl, .step.done .lbl { color: var(--text-primary); }
+  .bar { flex: 1; height: 2px; background: var(--border); margin: 0 14px; }
+  .bar.done { background: var(--status-live); }
+
+  .panel { display: none; }
+  .panel.active { display: block; }
+
+  /* 步骤 1：设备类型卡 */
+  .devices { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+  .dev-card {
+    background: var(--surface-2); border: 1px solid var(--border);
+    border-radius: var(--radius-card); padding: 22px 16px; text-align: center;
+    cursor: pointer; transition: border-color 0.15s, background 0.15s;
+  }
+  .dev-card:hover { border-color: var(--text-secondary); }
+  .dev-card.sel { border-color: var(--accent); background: var(--accent-soft); }
+  .dev-card svg { width: 34px; height: 34px; color: var(--accent); margin-bottom: 10px; }
+  .dev-card .t { font-size: 14px; font-weight: 600; }
+  .dev-card .d { font-size: 12px; color: var(--text-secondary); margin-top: 4px; line-height: 1.5; }
+
+  /* 步骤 2：扫描 + 列表 */
+  .radar {
+    width: 120px; height: 120px; border-radius: 50%;
+    margin: 0 auto 20px; border: 2px solid var(--accent-soft);
+    position: relative; display: flex; align-items: center; justify-content: center;
+  }
+  .radar::before {
+    content: ""; position: absolute; inset: 0; border-radius: 50%;
+    border: 2px solid var(--accent-soft); animation: ping 1.6s ease-out infinite;
+  }
+  @keyframes ping { 0% { transform: scale(0.55); opacity: 1; } 100% { transform: scale(1); opacity: 0; } }
+  .radar .core { width: 14px; height: 14px; border-radius: 50%; background: var(--accent); box-shadow: var(--shadow-glow); }
+
+  .devlist { display: flex; flex-direction: column; gap: 10px; }
+  .dev-row {
+    display: flex; align-items: center; gap: 12px; padding: 12px 14px;
+    background: var(--surface-2); border: 1px solid var(--border);
+    border-radius: 10px; cursor: pointer;
+  }
+  .dev-row.sel { border-color: var(--accent); background: var(--accent-soft); }
+  .dev-row .meta { flex: 1; }
+  .dev-row .meta .n { font-size: 14px; font-weight: 600; }
+  .dev-row .meta .s { font-size: 12px; color: var(--text-secondary); margin-top: 2px; }
+  .badge { font-size: 11px; color: var(--status-live); border: 1px solid var(--status-live); border-radius: 20px; padding: 2px 8px; }
+
+  /* 步骤 3：预览 */
+  .preview {
+    display: flex; flex-direction: column; align-items: center; gap: 10px;
+    padding: 28px; background: var(--bg-base);
+    border-radius: var(--radius-card); border: 1px dashed var(--border);
+  }
+  .mini-pill { display: flex; align-items: center; gap: 10px; background: rgba(14,17,22,0.55); border: 1px solid rgba(255,255,255,0.08); border-radius: 40px; padding: 10px 18px; }
+  .mini-pill .h { color: var(--accent); width: 26px; height: 26px; }
+  .mini-pill .b { font-family: var(--font-num); font-weight: 700; font-size: 26px; color: var(--accent); }
+  .mini-pill .u { font-size: 12px; color: var(--text-secondary); }
+
+  .foot { display: flex; justify-content: space-between; align-items: center; margin-top: 26px; }
+  .foot .hint { font-size: 12px; color: var(--text-tertiary); }
+  .foot .right { display: flex; gap: 10px; }
+</style>
+</head>
+<body>
+  <div class="wizard">
+    <div class="brand">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 21s-7.5-4.9-10-9.2C.4 8.9 1.6 5.5 4.8 4.9c2-.4 3.8.7 4.7 2.3.9-1.6 2.7-2.7 4.7-2.3 3.2.6 4.4 4 2.8 6.9C19.5 16.1 12 21 12 21z"/></svg>
+      <span class="name">怦然</span>
+    </div>
+    <div class="tagline">主播心率，一眼心动 · 三步完成首次设置</div>
+
+    <div class="steps">
+      <div class="step active" data-step="1"><div class="num">1</div><div class="lbl">选设备类型</div></div>
+      <div class="bar"></div>
+      <div class="step" data-step="2"><div class="num">2</div><div class="lbl">一键连接</div></div>
+      <div class="bar"></div>
+      <div class="step" data-step="3"><div class="num">3</div><div class="lbl">预览开播</div></div>
+    </div>
+
+    <!-- 步骤 1 -->
+    <section class="panel active" id="p1">
+      <div class="devices">
+        <div class="dev-card sel" data-dev="watch">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="6" y="6" width="12" height="12" rx="3"/><path d="M9 6V3h6v3M9 18v3h6v-3"/></svg>
+          <div class="t">智能手表</div><div class="d">Amazfit / 华为 / 小米 / Zepp</div>
+        </div>
+        <div class="dev-card" data-dev="strap">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h4l2 5 4-10 2 5h6"/></svg>
+          <div class="t">心率胸带</div><div class="d">BLE + ANT+ 运动胸带</div>
+        </div>
+        <div class="dev-card" data-dev="app">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="7" y="2" width="10" height="20" rx="2"/><path d="M11 18h2"/></svg>
+          <div class="t">手机 App</div><div class="d">经 HypeRate 云桥接</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 步骤 2 -->
+    <section class="panel" id="p2">
+      <div class="radar"><div class="core"></div></div>
+      <div class="devlist">
+        <div class="dev-row sel" data-dev="amazfit">
+          <span class="pc-status-dot" data-status="live"></span>
+          <div class="meta"><div class="n">Amazfit GTR 4</div><div class="s">已配对 · 信号强</div></div>
+          <span class="badge">已配对</span>
+        </div>
+        <div class="dev-row" data-dev="huawei">
+          <span class="pc-status-dot" data-status="connecting"></span>
+          <div class="meta"><div class="n">华为 Watch GT4</div><div class="s">可连接</div></div>
+        </div>
+      </div>
+      <div style="margin-top:14px; text-align:right;">
+        <button class="pc-btn-ghost" id="rescan">重新扫描</button>
+      </div>
+    </section>
+
+    <!-- 步骤 3 -->
+    <section class="panel" id="p3">
+      <div class="preview">
+        <div class="mini-pill">
+          <svg class="h" viewBox="0 0 24 24" fill="currentColor"><path d="M12 21s-7.5-4.9-10-9.2C.4 8.9 1.6 5.5 4.8 4.9c2-.4 3.8.7 4.7 2.3.9-1.6 2.7-2.7 4.7-2.3 3.2.6 4.4 4 2.8 6.9C19.5 16.1 12 21 12 21z"/></svg>
+          <span class="b">72</span><span class="u">BPM</span>
+        </div>
+        <div class="pc-label" style="color: var(--status-live);">实时 · Amazfit GTR 4</div>
+      </div>
+    </section>
+
+    <div class="foot">
+      <button class="pc-btn-ghost" id="prev" disabled>上一步</button>
+      <span class="hint" id="hint"></span>
+      <div class="right"><button class="pc-btn" id="next">下一步</button></div>
+    </div>
+  </div>
+
+  <script>
+    var total = 3, cur = 1;
+    var prev = document.getElementById("prev");
+    var next = document.getElementById("next");
+    var hint = document.getElementById("hint");
+
+    function show(n) {
+      cur = n;
+      document.querySelectorAll(".panel").forEach(function (p) { p.classList.remove("active"); });
+      document.getElementById("p" + n).classList.add("active");
+      document.querySelectorAll(".step").forEach(function (s) {
+        var k = +s.dataset.step;
+        s.classList.toggle("active", k === n);
+        s.classList.toggle("done", k < n);
+      });
+      document.querySelectorAll(".bar").forEach(function (b, i) { b.classList.toggle("done", i < n - 1); });
+      prev.disabled = n === 1;
+      next.textContent = n === total ? "开始使用" : "下一步";
+      hint.textContent = n === 1 ? "选择你的心率设备类型"
+                      : n === 2 ? "选择要连接的设备"
+                      : "一切就绪，开播吧！";
+    }
+
+    document.querySelectorAll(".dev-card").forEach(function (c) {
+      c.onclick = function () {
+        document.querySelectorAll(".dev-card").forEach(function (x) { x.classList.remove("sel"); });
+        c.classList.add("sel");
+      };
+    });
+    document.querySelectorAll(".dev-row").forEach(function (r) {
+      r.onclick = function () {
+        document.querySelectorAll(".dev-row").forEach(function (x) { x.classList.remove("sel"); });
+        r.classList.add("sel");
+      };
+    });
+
+    prev.onclick = function () { if (cur > 1) show(cur - 1); };
+    next.onclick = function () {
+      if (cur < total) { show(cur + 1); return; }
+      hint.textContent = "已完成！正在进入主界面…";
+      next.disabled = true; prev.disabled = true;
+    };
+    document.getElementById("rescan").onclick = function () {
+      var c = document.querySelector(".radar .core");
+      c.style.animation = "none"; void c.offsetWidth; c.style.animation = "";
+    };
+
+    show(1);
+  </script>
+</body>
+</html>

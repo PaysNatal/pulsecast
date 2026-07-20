@@ -1,0 +1,22 @@
+[package]
+name = "pulsecast"
+version = "0.1.0"
+description = "怦然 PulseCast · 主播心率直播伴侣"
+edition = "2021"
+rust-version = "1.77"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = ["tray-icon", "image-png"] }
+# 内嵌心率服务（HTTP + WS，端口 4567），替代 Node 版 dev-server.mjs
+# 启用 ble feature 以接入真实蓝牙心率设备（无设备/无蓝牙时自动回退模拟源）
+pulsecast-server = { path = "../server", features = ["ble"] }
+
+[profile.release]
+panic = "abort"
+codegen-units = 1
+lto = true
+opt-level = "s"
+strip = true

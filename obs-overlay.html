@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>怦然 PulseCast · OBS 叠层</title>
+<style>
+  /* ── 设计 token（与 design-tokens.css 同源） ── */
+  :root {
+    --accent: #FF4D6D;
+    --accent-soft: rgba(255, 77, 109, 0.16);
+    --status-connecting: #9BA1A8;
+    --status-live: #36C28C;
+    --status-device-lost: #F2994A;
+    --status-error: #EB5757;
+    --text-primary: #E8EAED;
+    --text-secondary: #9BA1A8;
+    --font-cn: "Sarasa Gothic SC", "PingFang SC", "Microsoft YaHei", sans-serif;
+    --font-num: "Inter", system-ui, sans-serif;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  /* 透明背景是 OBS 浏览器源的硬性要求 */
+  html, body { width: 100%; height: 100%; background: transparent; overflow: hidden; }
+
+  #stage {
+    position: fixed; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-family: var(--font-num);
+    color: var(--text-primary);
+    transform: scale(var(--scale, 1));
+    transform-origin: center center;
+  }
+
+  /* 心跳药丸 ── */
+  .pill {
+    display: flex; align-items: center; gap: 14px;
+    background: rgba(14, 17, 22, 0.55);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 40px;
+    padding: 16px 26px 16px 18px;
+    backdrop-filter: blur(6px);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
+  }
+  .heart {
+    width: 46px; height: 46px; flex: none;
+    color: var(--accent);
+    transform-origin: center;
+  }
+  .heart.beat { animation: beat 0.18s ease-out; }
+  @keyframes beat {
+    0%   { transform: scale(1); }
+    45%  { transform: scale(1.32); }
+    100% { transform: scale(1); }
+  }
+  .pill .read { display: flex; align-items: baseline; gap: 6px; }
+  .pill .bpm {
+    font-size: 56px; font-weight: 700; line-height: 1;
+    color: var(--accent); font-variant-numeric: tabular-nums;
+  }
+  .pill .unit { font-family: var(--font-cn); font-size: 14px; color: var(--text-secondary); }
+  .pill .meta { display: flex; flex-direction: column; gap: 4px; margin-left: 4px; }
+  .pill .dev { font-family: var(--font-cn); font-size: 13px; color: var(--text-primary); }
+  .pill .tag {
+    font-family: var(--font-cn); font-size: 12px;
+    display: inline-flex; align-items: center; gap: 6px;
+  }
+  .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--text-secondary); box-shadow: 0 0 8px currentColor; }
+  .tag[data-status="connecting"] .dot   { background: var(--status-connecting); color: var(--status-connecting); }
+  .tag[data-status="live"] .dot         { background: var(--status-live); color: var(--status-live); }
+  .tag[data-status="device_lost"] .dot  { background: var(--status-device-lost); color: var(--status-device-lost); }
+  .tag[data-status="error"] .dot        { background: var(--status-error); color: var(--status-error); }
+
+  /* ECG 波形 ── */
+  .ecg {
+    position: relative;
+    background: rgba(14, 17, 22, 0.5);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 16px;
+    padding: 14px 18px;
+    backdrop-filter: blur(6px);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
+  }
+  .ecg canvas { display: block; }
+  .ecg .overlay {
+    position: absolute; top: 12px; right: 18px;
+    display: flex; align-items: baseline; gap: 5px;
+  }
+  .ecg .bpm { font-size: 30px; font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums; }
+  .ecg .unit { font-family: var(--font-cn); font-size: 12px; color: var(--text-secondary); }
+
+  /* 极简大数字 ── */
+  .number {
+    display: flex; flex-direction: column; align-items: center; gap: 6px;
+    text-shadow: 0 2px 14px rgba(0, 0, 0, 0.4);
+  }
+  .number .bpm {
+    font-size: 132px; font-weight: 700; line-height: 1;
+    color: var(--accent); font-variant-numeric: tabular-nums;
+  }
+  .number .unit { font-family: var(--font-cn); font-size: 18px; color: var(--text-secondary); }
+  .number .tag { font-family: var(--font-cn); font-size: 14px; display: inline-flex; align-items: center; gap: 7px; }
+
+  /* 提示条（错误/设备丢失） */
+  .toast {
+    position: fixed; left: 50%; bottom: 22px; transform: translateX(-50%);
+    font-family: var(--font-cn); font-size: 13px;
+    background: rgba(14, 17, 22, 0.85); color: var(--text-primary);
+    border: 1px solid var(--border, #3A3F4A);
+    padding: 8px 14px; border-radius: 10px;
+    max-width: 80%; text-align: center;
+  }
+  .toast[data-status="error"]      { border-color: var(--status-error); }
+  .toast[data-status="device_lost"]{ border-color: var(--status-device-lost); }
+  .hidden { display: none !important; }
+
+  /* 阈值越界告警（high 红 / low 橙）：整块源边缘脉冲 */
+  #stage.armed-high::after,
+  #stage.armed-low::after {
+    content: ""; position: absolute; inset: 6px; pointer-events: none;
+    border: 3px solid; border-radius: 18px;
+    animation: alertPulse 0.9s ease-in-out infinite;
+  }
+  #stage.armed-high::after { border-color: var(--status-error); box-shadow: inset 0 0 26px rgba(235,87,87,0.55); }
+  #stage.armed-low::after  { border-color: var(--status-device-lost); box-shadow: inset 0 0 26px rgba(242,153,74,0.55); }
+  @keyframes alertPulse { 0%,100% { opacity: 0.35; } 50% { opacity: 1; } }
+
+  /* 阈值参考文字 */
+  .thr { font-family: var(--font-cn); font-size: 12px; color: var(--text-secondary); }
+  .pill .thr { margin-top: 2px; }
+
+  /* 控制事件横幅（场景切换 / 高光闪烁 / 改阈值，来自移动端命令） */
+  .ctl-banner {
+    position: fixed; left: 50%; top: 18px; transform: translate(-50%, -14px);
+    font-family: var(--font-cn); font-size: 15px; font-weight: 600;
+    background: rgba(26, 20, 24, 0.9); color: #fff;
+    border: 1px solid rgba(255, 77, 109, 0.5); border-radius: 14px;
+    padding: 10px 18px; z-index: 20; opacity: 0; pointer-events: none;
+    transition: opacity .24s, transform .24s;
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.4); max-width: 86%; text-align: center;
+  }
+  .ctl-banner.show { opacity: 1; transform: translate(-50%, 0); }
+  .ctl-banner[data-kind="flash"] { border-color: var(--accent); }
+  .ctl-banner.hidden { display: none !important; }
+
+  /* 高光闪烁：整块源一次白色脉冲（移动端「高光闪烁」触发） */
+  #stage.armed-flash::after {
+    content: ""; position: absolute; inset: 6px; pointer-events: none;
+    border: 4px solid #fff; border-radius: 18px;
+    animation: flashPulse 0.7s ease-out 1;
+  }
+  @keyframes flashPulse {
+    0% { opacity: 0; }
+    18% { opacity: 1; box-shadow: inset 0 0 44px rgba(255, 255, 255, 0.85); }
+    100% { opacity: 0; }
+  }
+</style>
+</head>
+<body>
+  <div id="stage">
+    <div id="overlay"><!-- 由 JS 按 style 渲染 --></div>
+  </div>
+  <div id="toast" class="toast hidden"></div>
+  <div id="ctl-banner" class="ctl-banner hidden"></div>
+
+<script>
+(function () {
+  "use strict";
+
+  // ── 配置（URL 参数） ──
+  const q = new URLSearchParams(location.search);
+  const STYLE = ["pill", "ecg", "number"].includes(q.get("style")) ? q.get("style") : "pill";
+  const SCALE = Math.max(0.4, parseFloat(q.get("scale")) || 1);
+  const WS_URL = q.get("ws") || "ws://localhost:4567/ws";
+  const FORCE_DEMO = q.get("demo") === "1"; // 强制演示模式，便于 OBS 预览调试
+
+  document.documentElement.style.setProperty("--scale", SCALE);
+
+  // ── 状态 ──
+  const STATUS_TEXT = {
+    connecting: "连接中…",
+    live: "实时",
+    device_lost: "设备丢失",
+    error: "连接错误",
+  };
+
+  let state = { bpm: 0, status: "connecting", device: { name: "" }, message: "", threshold: null };
+  let lastBeatAt = performance.now();
+  let beatInterval = 833; // 60/72 ≈ 0.83s，演示默认 72bpm
+
+  // ── DOM 渲染 ──
+  const overlay = document.getElementById("overlay");
+  const toast = document.getElementById("toast");
+
+  const HEART_SVG =
+    '<svg class="heart" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">' +
+    '<path d="M12 21s-7.5-4.9-10-9.2C.4 8.9 1.6 5.5 4.8 4.9c2-.4 3.8.7 4.7 2.3.9-1.6 2.7-2.7 4.7-2.3 3.2.6 4.4 4 2.8 6.9C19.5 16.1 12 21 12 21z"/></svg>';
+
+  function tagHTML() {
+    const s = state.status;
+    const label = STATUS_TEXT[s] || s;
+    return '<span class="tag" data-status="' + s + '"><span class="dot"></span>' + label + "</span>";
+  }
+
+  function render() {
+    if (STYLE === "pill") {
+      const dev = state.device && state.device.name ? state.device.name : "未连接设备";
+      overlay.innerHTML =
+        '<div class="pill">' + HEART_SVG +
+        '<div class="read"><span class="bpm">' + (state.bpm || "--") + '</span>' +
+        '<span class="unit">BPM</span></div>' +
+        '<div class="meta"><span class="dev">' + dev + "</span>" + tagHTML() +
+        (state.threshold ? '<span class="thr">阈值 ≥' + state.threshold.high + " / ≤" + state.threshold.low + "</span>" : "") +
+        "</div></div>";
+      heartEl = overlay.querySelector(".heart");
+    } else if (STYLE === "ecg") {
+      overlay.innerHTML =
+        '<div class="ecg"><canvas width="360" height="120"></canvas>' +
+        '<div class="overlay"><span class="bpm">' + (state.bpm || "--") + '</span>' +
+        '<span class="unit">BPM</span>' +
+        (state.threshold ? '<span class="thr"> ≥' + state.threshold.high + " ≤" + state.threshold.low + "</span>" : "") +
+        '</div></div>';
+      canvas = overlay.querySelector("canvas");
+      ctx = canvas.getContext("2d");
+    } else { // number
+      overlay.innerHTML =
+        '<div class="number"><span class="bpm">' + (state.bpm || "--") + '</span>' +
+        '<span class="unit">BPM</span>' + tagHTML() +
+        (state.threshold ? '<span class="thr">阈值 ≥' + state.threshold.high + " / ≤" + state.threshold.low + "</span>" : "") +
+        "</div>";
+    }
+
+    // 提示条
+    if ((state.status === "error" || state.status === "device_lost") && state.message) {
+      toast.textContent = state.message;
+      toast.setAttribute("data-status", state.status);
+      toast.classList.remove("hidden");
+    } else {
+      toast.classList.add("hidden");
+    }
+  }
+
+  let heartEl = null, canvas = null, ctx = null;
+
+  function armAlert(kind) {
+    const stage = document.getElementById("stage");
+    stage.classList.remove("armed-high", "armed-low");
+    if (kind === "high") stage.classList.add("armed-high");
+    else if (kind === "low") stage.classList.add("armed-low");
+    // "normal" 或其余类型：移除告警边框
+  }
+
+  function updateStatusUI() {
+    // 仅更新状态文字/圆点，避免重绘动画
+    overlay.querySelectorAll(".tag").forEach(function (t) {
+      t.setAttribute("data-status", state.status);
+      const label = STATUS_TEXT[state.status] || state.status;
+      t.innerHTML = '<span class="dot"></span>' + label;
+    });
+  }
+
+  // ── 控制事件（来自移动端 / 桌面端转发） ──
+  let ctlBannerTimer = null;
+  function showBanner(text, kind) {
+    const b = document.getElementById("ctl-banner");
+    b.textContent = text;
+    if (kind) b.dataset.kind = kind; else delete b.dataset.kind;
+    b.classList.remove("hidden");
+    requestAnimationFrame(function () { b.classList.add("show"); });
+    clearTimeout(ctlBannerTimer);
+    ctlBannerTimer = setTimeout(function () {
+      b.classList.remove("show");
+      setTimeout(function () { b.classList.add("hidden"); }, 260);
+    }, 2000);
+  }
+  function onControlEvent(f) {
+    const stage = document.getElementById("stage");
+    if (f.kind === "switch_scene") {
+      showBanner("🎬 切换场景 → " + (f.scene || ""), "scene");
+    } else if (f.kind === "flash") {
+      showBanner("✨ 高光闪烁", "flash");
+      stage.classList.remove("armed-flash");
+      void stage.offsetWidth; // 重置动画
+      stage.classList.add("armed-flash");
+      setTimeout(function () { stage.classList.remove("armed-flash"); }, 720);
+    } else if (f.kind === "set_threshold") {
+      if (typeof f.high === "number" && typeof f.low === "number") {
+        state.threshold = { high: f.high, low: f.low };
+        render();
+      }
+      showBanner("阈值已更新 " + f.low + "–" + f.high, "thr");
+    } else if (f.kind === "reset") {
+      stage.classList.remove("armed-high", "armed-low", "armed-flash");
+      showBanner("已复位告警", "reset");
+    }
+  }
+
+  // ── 心跳驱动 ──
+  function onBeat() {
+    if (STYLE === "pill" && heartEl) {
+      heartEl.classList.remove("beat");
+      void heartEl.offsetWidth; // 重置动画
+      heartEl.classList.add("beat");
+    }
+  }
+
+  function loop(now) {
+    const interval = state.bpm > 0 ? 60000 / state.bpm : beatInterval;
+    if (now - lastBeatAt >= interval) {
+      lastBeatAt = now;
+      onBeat();
+      ecgPhase = 0; // 重置 ECG 周期
+    }
+    if (STYLE === "ecg" && ctx) drawECG();
+    requestAnimationFrame(loop);
+  }
+
+  // ── ECG 绘制 ──
+  let ecgBuf = [];
+  let ecgPhase = 0;
+  function ecgShape(t) {
+    // t ∈ [0,1)：合成一段 PQRST 波形
+    if (t < 0.12) return Math.sin(t / 0.12 * Math.PI) * 0.12;          // P
+    if (t < 0.18) return 0;
+    if (t < 0.21) return -0.18;                                        // Q
+    if (t < 0.24) return 1.0;                                          // R
+    if (t < 0.27) return -0.35;                                        // S
+    if (t < 0.30) return 0;
+    if (t < 0.45) return Math.sin((t - 0.30) / 0.15 * Math.PI) * 0.22; // T
+    return 0;
+  }
+  function drawECG() {
+    const w = canvas.width, h = canvas.height;
+    const mid = h * 0.6;
+    const amp = h * 0.42;
+    ecgPhase += 0.012;
+    if (ecgPhase >= 1) ecgPhase -= 1;
+    const v = ecgShape(ecgPhase);
+    ecgBuf.push(mid - v * amp);
+    const max = Math.floor(w / 2);
+    if (ecgBuf.length > max) ecgBuf.shift();
+
+    ctx.clearRect(0, 0, w, h);
+    ctx.lineWidth = 2.5;
+    ctx.strokeStyle = "#FF4D6D";
+    ctx.shadowColor = "rgba(255,77,109,0.6)";
+    ctx.shadowBlur = 8;
+    ctx.beginPath();
+    for (let i = 0; i < ecgBuf.length; i++) {
+      const x = w - (ecgBuf.length - i) * 2;
+      const y = ecgBuf[i];
+      if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+  }
+
+  // ── 实时数据：WebSocket ──
+  let ws = null, demoTimer = null;
+
+  function applyState(msg) {
+    // 控制事件（移动端命令回显 / 桌面端转发）：单独处理，不覆盖心率帧
+    if (msg.kind) { onControlEvent(msg); return; }
+    if (typeof msg.bpm === "number") state.bpm = msg.bpm;
+    if (msg.status) state.status = msg.status;
+    if (msg.device) state.device = msg.device;
+    if (msg.message !== undefined) state.message = msg.message;
+    if (msg.threshold) state.threshold = msg.threshold;
+    if (msg.trigger) armAlert(msg.trigger);
+    // 实时刷新数字
+    overlay.querySelectorAll(".bpm").forEach(function (el) {
+      el.textContent = state.bpm || "--";
+    });
+    updateStatusUI();
+    toast.classList.toggle("hidden", !(state.status === "error" || state.status === "device_lost") || !state.message);
+    if ((state.status === "error" || state.status === "device_lost") && state.message) {
+      toast.textContent = state.message;
+      toast.setAttribute("data-status", state.status);
+    }
+  }
+
+  function connectWS() {
+    if (FORCE_DEMO) { startDemo(); return; }
+    try {
+      ws = new WebSocket(WS_URL);
+      ws.onmessage = function (e) {
+        try { applyState(JSON.parse(e.data)); } catch (_) {}
+      };
+      ws.onerror = function () { startDemo(); };
+      ws.onclose = function () { startDemo(); };
+    } catch (_) {
+      startDemo();
+    }
+  }
+
+  // 无连接时演示：模拟 72bpm 实时心率
+  function startDemo() {
+    if (demoTimer) return;
+    state.bpm = 72; state.status = "live"; state.device = { name: "演示设备 (Amazfit)" };
+    render();
+    demoTimer = setInterval(function () {
+      state.bpm = 68 + Math.round(Math.random() * 10); // 68–78 轻微波动
+      overlay.querySelectorAll(".bpm").forEach(function (el) { el.textContent = state.bpm; });
+    }, 3000);
+  }
+
+  // ── 启动 ──
+  render();
+  requestAnimationFrame(loop);
+  connectWS();
+})();
+</script>
+</body>
+</html>

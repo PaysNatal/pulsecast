@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>怦然 PulseCast · 设置</title>
+<link rel="stylesheet" href="design-tokens.css" />
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: var(--font-cn);
+    background: var(--bg-base);
+    color: var(--text-primary);
+    height: 100vh; overflow: hidden;
+    -webkit-font-smoothing: antialiased;
+  }
+  .win { display: flex; flex-direction: column; height: 100vh; }
+
+  .titlebar {
+    height: 44px; flex: none;
+    display: flex; align-items: center; gap: 10px;
+    padding: 0 16px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+  }
+  .titlebar .logo { color: var(--accent); width: 18px; height: 18px; }
+  .titlebar .t { font-size: 13px; color: var(--text-secondary); font-weight: 600; }
+
+  .body { flex: 1; display: flex; min-height: 0; }
+
+  .sidebar {
+    width: 206px; flex: none;
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    padding: 14px 10px;
+    display: flex; flex-direction: column; gap: 4px;
+  }
+  .nav-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 12px; border-radius: 10px;
+    font-size: 14px; color: var(--text-secondary);
+    cursor: pointer; border: none; background: none; width: 100%; text-align: left;
+    font-family: var(--font-cn);
+  }
+  .nav-item:hover { background: var(--surface-2); color: var(--text-primary); }
+  .nav-item.active { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+  .nav-item svg { width: 16px; height: 16px; }
+
+  .content { flex: 1; padding: 28px 34px; overflow-y: auto; }
+  .content h1 { font-size: 20px; font-weight: 600; margin-bottom: 4px; }
+  .content .sub { font-size: 13px; color: var(--text-secondary); margin-bottom: 22px; }
+
+  .panel { display: none; }
+  .panel.active { display: block; }
+
+  .row {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 16px; background: var(--surface);
+    border: 1px solid var(--border); border-radius: var(--radius-card);
+    margin-bottom: 12px;
+  }
+  .row .name { font-size: 14px; font-weight: 600; }
+  .row .desc { font-size: 12px; color: var(--text-secondary); margin-top: 3px; }
+
+  .device-card { padding: 18px; margin-bottom: 14px; }
+  .dc-head { display: flex; align-items: center; gap: 12px; }
+  .dc-head .meta { flex: 1; }
+  .dc-head .meta .n { font-size: 15px; font-weight: 600; }
+  .dc-head .meta .s { font-size: 12px; color: var(--text-secondary); margin-top: 3px; }
+  .dc-actions { display: flex; gap: 10px; margin-top: 16px; }
+
+  .signal { display: flex; align-items: flex-end; gap: 3px; height: 16px; }
+  .signal i { width: 4px; background: var(--status-live); border-radius: 2px; display: block; }
+  .signal i:nth-child(1) { height: 6px; }
+  .signal i:nth-child(2) { height: 10px; }
+  .signal i:nth-child(3) { height: 14px; }
+  .signal i:nth-child(4) { height: 16px; opacity: 0.28; }
+
+  input[type="number"], select {
+    background: var(--surface-2); border: 1px solid var(--border);
+    color: var(--text-primary); border-radius: 8px; padding: 8px 10px;
+    font-family: var(--font-cn); font-size: 13px;
+  }
+  input[type="number"] { width: 110px; }
+
+  .seg { display: flex; gap: 8px; }
+  .seg button {
+    font-family: var(--font-cn); font-size: 13px; color: var(--text-secondary);
+    background: var(--surface-2); border: 1px solid var(--border);
+    border-radius: 9px; padding: 8px 14px; cursor: pointer;
+  }
+  .seg button.on { background: var(--accent); color: #fff; border-color: var(--accent); font-weight: 600; }
+
+  .slider { display: flex; align-items: center; gap: 12px; }
+  .slider input[type="range"] { accent-color: var(--accent); width: 200px; }
+  .slider .val { font-family: var(--font-num); font-weight: 700; color: var(--accent); min-width: 44px; }
+
+  .kbd {
+    font-family: var(--font-num); font-size: 13px; color: var(--text-primary);
+    background: var(--surface-2); border: 1px solid var(--border);
+    border-radius: 8px; padding: 8px 12px; min-width: 120px; text-align: center;
+  }
+  .accent-chip { display: inline-block; width: 16px; height: 16px; border-radius: 5px; background: var(--accent); vertical-align: -3px; margin-right: 8px; }
+  .note { font-size: 12px; color: var(--text-tertiary); margin-top: 6px; line-height: 1.6; }
+
+  .device-list { display: flex; flex-direction: column; gap: 10px; margin-top: 4px; }
+  .dev-row {
+    display: flex; align-items: center; gap: 12px;
+    padding: 12px 14px; background: var(--surface);
+    border: 1px solid var(--border); border-radius: var(--radius-card);
+  }
+  .dev-row .dn { flex: 1; min-width: 0; }
+  .dev-row .dn .n { font-size: 14px; font-weight: 600; }
+  .dev-row .dn .s { font-size: 12px; color: var(--text-secondary); margin-top: 2px; }
+  .pc-btn {
+    font-family: var(--font-cn); font-size: 13px; font-weight: 600;
+    color: #fff; background: var(--accent); border: none;
+    border-radius: 9px; padding: 8px 16px; cursor: pointer;
+  }
+  .pc-btn:disabled { opacity: .55; cursor: default; }
+  .pc-btn-ghost:disabled { opacity: .5; cursor: default; }
+  .ble-box { margin-top: 4px; }
+</style>
+</head>
+<body>
+  <div class="win">
+    <div class="titlebar">
+      <svg class="logo" viewBox="0 0 24 24" fill="currentColor"><path d="M12 21s-7.5-4.9-10-9.2C.4 8.9 1.6 5.5 4.8 4.9c2-.4 3.8.7 4.7 2.3.9-1.6 2.7-2.7 4.7-2.3 3.2.6 4.4 4 2.8 6.9C19.5 16.1 12 21 12 21z"/></svg>
+      <span class="t">怦然 PulseCast · 设置</span>
+    </div>
+
+    <div class="body">
+      <aside class="sidebar">
+        <button class="nav-item active" data-panel="device">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="3" width="16" height="18" rx="3"/><path d="M9 7h6"/></svg>设备与连接</button>
+        <button class="nav-item" data-panel="appearance">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="8"/><path d="M12 4v8l5 3"/></svg>外观</button>
+        <button class="nav-item" data-panel="overlay">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h4l2 6 4-14 2 8h6"/></svg>叠层</button>
+        <button class="nav-item" data-panel="port">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="9" width="18" height="6" rx="2"/><path d="M7 12h.01M11 12h.01M15 12h.01"/></svg>端口</button>
+        <button class="nav-item" data-panel="general">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 0 0-.1-1.2l2-1.5-2-3.4-2.3 1a7 7 0 0 0-2-1.2L16.3 3H7.7L7 5.5a7 7 0 0 0-2 1.2l-2.3-1-2 3.4 2 1.5A7 7 0 0 0 3 12c0 .4 0 .8.1 1.2l-2 1.5 2 3.4 2.3-1a7 7 0 0 0 2 1.2L7.7 21h8.6l.3-2.5a7 7 0 0 0 2-1.2l2.3 1 2-3.4-2-1.5c.1-.4.1-.8.1-1.2z"/></svg>通用</button>
+        <button class="nav-item" data-panel="hotkey">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="6" width="18" height="12" rx="2"/><path d="M7 10h2M11 10h2M15 10h2M8 14h8"/></svg>热键</button>
+      </aside>
+
+      <main class="content">
+        <!-- 设备与连接 -->
+        <section class="panel active" id="device">
+          <h1>设备与连接</h1>
+          <p class="sub">管理你的心率设备与连接偏好</p>
+
+          <div class="device-card pc-card">
+            <div class="dc-head">
+              <span class="pc-status-dot" data-status="live"></span>
+              <div class="meta">
+                <div class="n" id="pc-dev-name">模拟心率源</div>
+                <div class="s" id="pc-dev-sub">实时 · 模拟数据</div>
+              </div>
+              <div class="signal" title="信号强"><i></i><i></i><i></i><i></i></div>
+            </div>
+            <div class="dc-actions">
+              <button class="pc-btn-ghost">重连</button>
+              <button class="pc-btn-ghost">忘记设备</button>
+            </div>
+          </div>
+
+          <div class="row">
+            <div><div class="name">数据源</div><div class="desc">真实蓝牙直连心率设备，无设备时自动回退模拟心率</div></div>
+            <div class="seg" id="seg-source">
+              <button data-v="ble">真实蓝牙</button>
+              <button data-v="mock" class="on">模拟心率</button>
+            </div>
+          </div>
+
+          <div class="ble-box" id="ble-box" hidden>
+            <div class="row">
+              <div><div class="name">扫描心率设备</div><div class="desc">发现附近支持心率服务（0x180D）的蓝牙设备</div></div>
+              <button class="pc-btn-ghost" id="btn-scan">扫描</button>
+            </div>
+            <div id="ble-status" class="note">点击「扫描」以发现附近的蓝牙心率设备（如 Amazfit / Polar H10）。</div>
+            <div id="ble-devices" class="device-list"></div>
+          </div>
+
+          <div class="row">
+            <div><div class="name">自动重连</div><div class="desc">设备断开后自动尝试重连</div></div>
+            <div class="pc-toggle" role="switch" aria-checked="true" data-toggle></div>
+          </div>
+
+          <div class="row">
+            <div><div class="name">信号强度</div><div class="desc">当前连接质量</div></div>
+            <div class="signal" title="信号强"><i></i><i></i><i></i><i></i></div>
+          </div>
+        </section>
+
+        <!-- 外观 -->
+        <section class="panel" id="appearance">
+          <h1>外观</h1>
+          <p class="sub">自定义叠层与界面的视觉风格</p>
+          <div class="row">
+            <div><div class="name">主题</div><div class="desc">主播场景建议暗色，护眼且叠层更突出</div></div>
+            <div class="seg" data-seg="theme">
+              <button class="on" data-v="dark">暗色</button>
+              <button data-v="light">浅色</button>
+            </div>
+          </div>
+          <div class="row">
+            <div><div class="name">强调色</div><div class="desc">心率数字、CTA 与 Logo 主色</div></div>
+            <span class="accent-chip"></span><span class="pc-label">主播粉 #FF4D6D</span>
+          </div>
+        </section>
+
+        <!-- 叠层 -->
+        <section class="panel" id="overlay">
+          <h1>叠层</h1>
+          <p class="sub">常驻悬浮叠层的样式与缩放</p>
+          <div class="row">
+            <div><div class="name">叠层样式</div><div class="desc">OBS 浏览器源共享同一套样式</div></div>
+            <div class="seg" data-seg="style">
+              <button class="on" data-v="pill">心跳药丸</button>
+              <button data-v="ecg">ECG 波形</button>
+              <button data-v="number">极简大数字</button>
+            </div>
+          </div>
+          <div class="row">
+            <div><div class="name">缩放</div><div class="desc">叠层整体大小，0.4–2.0 倍</div></div>
+            <div class="slider">
+              <input type="range" min="0.4" max="2" step="0.1" value="1" data-scale />
+              <span class="val" id="scaleVal">1.0×</span>
+            </div>
+          </div>
+        </section>
+
+        <!-- 端口 -->
+        <section class="panel" id="port">
+          <h1>端口</h1>
+          <p class="sub">本地服务端口（OBS 浏览器源与 WebSocket 共用）</p>
+          <div class="row">
+            <div><div class="name">本地服务端口</div><div class="desc">修改后需重启生效</div></div>
+            <input type="number" value="4567" min="1024" max="65535" />
+          </div>
+          <p class="note">OBS 浏览器源地址：<b>http://localhost:4567/obs</b><br />实时数据 WebSocket：<b>ws://localhost:4567/ws</b></p>
+        </section>
+
+        <!-- 通用 -->
+        <section class="panel" id="general">
+          <h1>通用</h1>
+          <p class="sub">基础行为与语言</p>
+          <div class="row">
+            <div><div class="name">开机自启</div><div class="desc">登录系统后自动在后台运行</div></div>
+            <div class="pc-toggle" role="switch" aria-checked="true" data-toggle></div>
+          </div>
+          <div class="row">
+            <div><div class="name">语言</div><div class="desc">界面显示语言</div></div>
+            <select><option>简体中文</option><option>English</option></select>
+          </div>
+        </section>
+
+        <!-- 热键 -->
+        <section class="panel" id="hotkey">
+          <h1>热键</h1>
+          <p class="sub">全局快捷键（即使叠层隐藏也生效）</p>
+          <div class="row">
+            <div><div class="name">显隐叠层</div><div class="desc">一键显示 / 隐藏悬浮叠层</div></div>
+            <span class="kbd">⌘ ⇧ H</span>
+          </div>
+          <div class="row">
+            <div><div class="name">切换叠层样式</div><div class="desc">在 3 种样式间循环切换</div></div>
+            <span class="kbd">⌘ ⇧ B</span>
+          </div>
+        </section>
+      </main>
+    </div>
+  </div>
+
+  <script>
+    // 侧边导航切换
+    document.querySelectorAll(".nav-item").forEach(function (item) {
+      item.addEventListener("click", function () {
+        document.querySelectorAll(".nav-item").forEach(function (n) { n.classList.remove("active"); });
+        item.classList.add("active");
+        var p = item.dataset.panel;
+        document.querySelectorAll(".panel").forEach(function (s) { s.classList.remove("active"); });
+        document.getElementById(p).classList.add("active");
+      });
+    });
+
+    // 开关 toggle
+    document.querySelectorAll("[data-toggle]").forEach(function (t) {
+      t.addEventListener("click", function () {
+        t.setAttribute("aria-checked", t.getAttribute("aria-checked") === "true" ? "false" : "true");
+      });
+    });
+
+    // 分段控件
+    document.querySelectorAll("[data-seg]").forEach(function (seg) {
+      seg.querySelectorAll("button").forEach(function (b) {
+        b.addEventListener("click", function () {
+          seg.querySelectorAll("button").forEach(function (x) { x.classList.remove("on"); });
+          b.classList.add("on");
+        });
+      });
+    });
+
+    // 缩放滑块
+    var scale = document.querySelector("[data-scale]");
+    var scaleVal = document.getElementById("scaleVal");
+    scale.addEventListener("input", function () {
+      scaleVal.textContent = parseFloat(scale.value).toFixed(1) + "×";
+    });
+
+    // ── 数据源 / 真实蓝牙（调用本地服务 API，同源 localhost:4567） ──
+    function api(path, opts) {
+      return fetch(path, opts).then(function (r) {
+        if (!r.ok) throw new Error("HTTP " + r.status);
+        return r.json();
+      });
+    }
+    function setSourceUI(isBle) {
+      document.querySelectorAll("#seg-source button").forEach(function (b) {
+        b.classList.toggle("on", (b.dataset.v === "ble") === isBle);
+      });
+      document.getElementById("ble-box").hidden = !isBle;
+      document.getElementById("pc-dev-name").textContent = isBle ? "真实蓝牙心率" : "模拟心率源";
+      document.getElementById("pc-dev-sub").textContent = isBle ? "实时 · 蓝牙直连" : "实时 · 模拟数据";
+    }
+    // 初始化当前模式
+    api("/api/source").then(function (s) {
+      setSourceUI(s.mode === "ble");
+    }).catch(function () {});
+
+    // 切换数据源
+    document.querySelectorAll("#seg-source button").forEach(function (b) {
+      b.addEventListener("click", function () {
+        var mode = b.dataset.v;
+        setSourceUI(mode === "ble");
+        api("/api/source", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ mode: mode })
+        }).catch(function (e) {
+          document.getElementById("ble-status").textContent = "切换失败：" + e.message;
+        });
+      });
+    });
+
+    // 扫描心率设备
+    document.getElementById("btn-scan").addEventListener("click", function (e) {
+      var btn = e.currentTarget;
+      btn.disabled = true; btn.textContent = "扫描中…";
+      var st = document.getElementById("ble-status");
+      st.textContent = "正在扫描附近心率设备…";
+      api("/api/ble/scan").then(function (r) {
+        var devs = r.devices || [];
+        renderBleDevices(devs);
+        st.textContent = devs.length
+          ? "发现 " + devs.length + " 台设备，点击「连接」"
+          : "未发现心率设备，请确认设备已开启广播并靠近电脑。";
+      }).catch(function (err) {
+        st.textContent = "扫描失败：" + (err.message || err);
+      }).finally(function () {
+        btn.disabled = false; btn.textContent = "扫描";
+      });
+    });
+
+    function renderBleDevices(devs) {
+      var box = document.getElementById("ble-devices");
+      box.innerHTML = "";
+      devs.forEach(function (d) {
+        var row = document.createElement("div");
+        row.className = "dev-row";
+        var rssi = d.rssi != null ? "信号 " + d.rssi + " dBm" : "心率设备";
+        var meta = document.createElement("div");
+        meta.className = "dn";
+        meta.innerHTML = '<div class="n"></div><div class="s"></div>';
+        meta.querySelector(".n").textContent = d.name;
+        meta.querySelector(".s").textContent = rssi;
+        var btn = document.createElement("button");
+        btn.className = "pc-btn"; btn.textContent = "连接";
+        btn.addEventListener("click", function () {
+          btn.disabled = true; btn.textContent = "连接中…";
+          api("/api/source", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ mode: "ble", device: d.name })
+          }).then(function () {
+            document.getElementById("ble-status").textContent = "已选择「" + d.name + "」，正在连接…";
+          }).catch(function (err) {
+            document.getElementById("ble-status").textContent = "连接失败：" + (err.message || err);
+            btn.disabled = false; btn.textContent = "连接";
+          });
+        });
+        row.appendChild(meta);
+        row.appendChild(btn);
+        box.appendChild(row);
+      });
+    }
+  </script>
+</body>
+</html>

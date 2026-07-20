@@ -1,0 +1,15 @@
+# ===== 构建产物 =====
+/target
+/node_modules
+/dist
+
+# ===== 项目本地数据（含 memory / 截图，不入库）=====
+/.workbuddy
+
+# ===== 操作系统 / 编辑器 =====
+.DS_Store
+Thumbs.db
+*.log
+
+# ===== Rust 备份文件 =====
+**/*.rs.bk

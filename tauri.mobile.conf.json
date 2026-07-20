@@ -1,0 +1,54 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "怦然 PulseCast",
+  "version": "0.1.0",
+  "identifier": "com.pulsecast.app",
+  "build": {
+    "frontendDist": "../mobile",
+    "devUrl": "http://localhost:4567",
+    "beforeDevCommand": "node dev-server.mjs",
+    "beforeBuildCommand": "node build-frontend.mjs"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "怦然 PulseCast",
+        "width": 390,
+        "height": 844,
+        "resizable": true,
+        "fullscreen": false
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "plugins": {
+    "ble": {
+      "android": {
+        "scan_interval_ms": 500,
+        "request_timeout_ms": 10000
+      }
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "icon": ["icons/icon.png"],
+    "iOS": {
+      "minimumSystemVersion": "15.0",
+      "deviceSupported": ["iphone", "ipad"],
+      "orientation": ["portrait"]
+    },
+    "android": {
+      "minSdkVersion": 24,
+      "targetSdkVersion": 34,
+      "permissions": [
+        "android.permission.BLUETOOTH_SCAN",
+        "android.permission.BLUETOOTH_CONNECT",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.INTERNET"
+      ]
+    }
+  }
+}
