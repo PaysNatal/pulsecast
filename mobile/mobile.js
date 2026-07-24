@@ -13,6 +13,7 @@
   const state = {
     host: localStorage.getItem("pc_host") || "localhost",
     port: localStorage.getItem("pc_port") || "4567",
+    token: new URLSearchParams(location.search).get("token") || localStorage.getItem("pc_token") || "",
     ws: null,
     bpm: 0,
     hiddenBpm: 72,
@@ -44,7 +45,10 @@
   }
 
   /* ───────── WebSocket 拉流 ───────── */
-  function wsUrl() { return `ws://${state.host}:${state.port}/ws`; }
+  function wsUrl() {
+    const base = `ws://${state.host}:${state.port}/ws`;
+    return state.token ? `${base}?token=${encodeURIComponent(state.token)}` : base;
+  }
   function connect() {
     setStatus("connecting");
     if (state.ws) { try { state.ws.close(); } catch (e) {} }
@@ -223,6 +227,7 @@
     $("#set-port").textContent = state.port;
     $("#cfg-host").value = state.host;
     $("#cfg-port").value = state.port;
+    $("#cfg-token").value = state.token;
   }
 
   /* ───────── 服务器配置弹层 ───────── */
@@ -231,8 +236,10 @@
   $("#cfg-save").addEventListener("click", () => {
     const h = $("#cfg-host").value.trim() || "localhost";
     const p = $("#cfg-port").value.trim() || "4567";
-    state.host = h; state.port = p;
+    const tk = $("#cfg-token").value.trim();
+    state.host = h; state.port = p; state.token = tk;
     localStorage.setItem("pc_host", h); localStorage.setItem("pc_port", p);
+    localStorage.setItem("pc_token", tk);
     $("#set-port").textContent = p;
     $("#cfg-modal").hidden = true;
     connect();

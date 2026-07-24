@@ -29,6 +29,9 @@ pub mod ble;
 // VRChat OSC 适配（心率 → avatar 参数 + ChatBox，零依赖 UDP）
 pub mod osc;
 
+// 设置持久化（JSON 配置文件读写）
+pub mod config;
+
 // ── 数据模型（与 dev-server.mjs / obs-overlay.html 契约一致） ───────────────
 
 #[derive(Clone, Copy, Serialize)]
@@ -215,6 +218,8 @@ pub struct Opts {
     pub chatbox: bool,
     /// 心率阈值（high/low）；配置后服务端注入 trigger 与 threshold 广播
     pub threshold: Option<ThresholdCfg>,
+    /// WS 连接认证 token（Tauri 启动时生成，前端通过 IPC 获取后附在 WS URL 参数中）
+    pub token: Option<String>,
 }
 
 // ── 共享状态 ───────────────────────────────────────────────────────────────
@@ -229,6 +234,8 @@ struct AppState {
     threshold: Arc<Mutex<Option<ThresholdCfg>>>,
     /// 热源控制器（模拟 / 真实 BLE，运行时可热切换）
     controller: SourceController,
+    /// WS 认证 token（None 表示不校验，兼容独立运行模式）
+    token: Option<String>,
 }
 
 impl AppState {
@@ -417,6 +424,73 @@ async fn ble_task(
     }
 }
 
+// ── Origin 校验中间件 ──────────────────────────────────────────────────────
+
+fn is_allowed_origin(origin: &str) -> bool {
+    if origin.starts_with("http://localhost") || origin.starts_with("http://127.0.0.1") {
+        return true;
+    }
+    if origin == "tauri://localhost" || origin == "https://tauri.localhost" {
+        return true;
+    }
+    false
+}
+
+async fn origin_guard(
+    req: axum::http::Request<axum::body::Body>,
+    next: axum::middleware::Next,
+) -> Response {
+    if let Some(origin) = req.headers().get(header::ORIGIN) {
+        if let Ok(val) = origin.to_str() {
+            if !is_allowed_origin(val) {
+                return (StatusCode::FORBIDDEN, "Origin 不允许").into_response();
+            }
+        }
+    }
+    next.run(req).await
+}
+
+// ── API Token 校验中间件 ────────────────────────────────────────────────────
+// 仅拦截 /api/* 路由；token 未配置时（独立运行模式）放行所有请求。
+// 支持两种传递方式：?token=<value> 查询参数 或 Authorization: Bearer <value> 头。
+
+async fn token_guard(
+    State(state): State<AppState>,
+    req: axum::http::Request<axum::body::Body>,
+    next: axum::middleware::Next,
+) -> Response {
+    // 仅守卫 /api/* 路由
+    if !req.uri().path().starts_with("/api/") {
+        return next.run(req).await;
+    }
+    // 未配置 token → 兼容独立运行 / 开发模式，放行
+    let expected = match &state.token {
+        Some(t) => t,
+        None => return next.run(req).await,
+    };
+    // 方式一：查询参数 ?token=xxx
+    if let Some(query) = req.uri().query() {
+        for pair in query.split('&') {
+            if let Some(val) = pair.strip_prefix("token=") {
+                if val == expected {
+                    return next.run(req).await;
+                }
+            }
+        }
+    }
+    // 方式二：Authorization: Bearer xxx
+    if let Some(auth) = req.headers().get(header::AUTHORIZATION) {
+        if let Ok(val) = auth.to_str() {
+            if let Some(tok) = val.strip_prefix("Bearer ") {
+                if tok == expected {
+                    return next.run(req).await;
+                }
+            }
+        }
+    }
+    (StatusCode::UNAUTHORIZED, "未授权：缺少有效 token").into_response()
+}
+
 // ── 入口 ───────────────────────────────────────────────────────────────────
 
 pub async fn run_server(opts: Opts) {
@@ -459,6 +533,7 @@ pub async fn run_server(opts: Opts) {
         current: current.clone(),
         threshold: threshold.clone(),
         controller: controller.clone(),
+        token: opts.token.clone(),
     };
 
     // 阈值转换任务：订阅裸帧 → 注入 threshold/trigger → 对外广播
@@ -488,16 +563,21 @@ pub async fn run_server(opts: Opts) {
     }
 
     let app = {
-        let r = Router::new()
+        let mut r = Router::new()
             .route("/", get(root_handler))
             .route("/ws", get(ws_handler))
             .route("/settings", get(settings_handler))
             .route("/obs", get(obs_handler))
             .route("/design-tokens.css", get(css_handler))
-            .route("/api/source", get(get_source).post(post_source));
+            .route("/api/source", get(get_source).post(post_source))
+            .route("/api/config", get(get_config).post(post_config));
         #[cfg(feature = "ble")]
-        let r = r.route("/api/ble/scan", get(scan_handler));
-        r.with_state(state.clone())
+        {
+            r = r.route("/api/ble/scan", get(scan_handler));
+        }
+        r.layer(axum::middleware::from_fn_with_state(state.clone(), token_guard))
+            .layer(axum::middleware::from_fn(origin_guard))
+            .with_state(state.clone())
     };
 
     let addr = SocketAddr::from((Ipv4Addr::LOCALHOST, opts.port));
@@ -522,7 +602,20 @@ async fn root_handler(State(state): State<AppState>) -> Response {
 
 /// WebSocket 升级端点（axum 0.8 起 WebSocketUpgrade 为 FromRequestParts，
 /// 与静态首页分离到独立路径，避免 Option 包裹的兼容问题）。
-async fn ws_handler(ws: WebSocketUpgrade, State(state): State<AppState>) -> Response {
+/// 若服务端配置了 token，则要求 WS URL 携带 ?token=<value>，否则拒绝升级。
+async fn ws_handler(
+    ws: WebSocketUpgrade,
+    axum::extract::Query(params): axum::extract::Query<std::collections::HashMap<String, String>>,
+    State(state): State<AppState>,
+) -> Response {
+    if let Some(expected) = &state.token {
+        match params.get("token") {
+            Some(t) if t == expected => {}
+            _ => {
+                return (StatusCode::FORBIDDEN, "未授权连接").into_response();
+            }
+        }
+    }
     ws.on_upgrade(move |socket| handle_socket(socket, state))
         .into_response()
 }
@@ -579,6 +672,20 @@ async fn post_source(State(state): State<AppState>, Json(body): Json<SourceReq>)
 async fn scan_handler(State(state): State<AppState>) -> Response {
     let devs = state.controller.scan().await;
     Json(json!({ "devices": devs })).into_response()
+}
+
+/// GET /api/config → 读取持久化配置
+async fn get_config() -> Response {
+    let cfg = config::load();
+    Json(cfg).into_response()
+}
+
+/// POST /api/config → 保存配置到磁盘
+async fn post_config(Json(body): Json<config::AppConfig>) -> Response {
+    match config::save(&body) {
+        Ok(()) => (StatusCode::OK, Json(json!({ "ok": true }))).into_response(),
+        Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, e).into_response(),
+    }
 }
 
 async fn serve_file(state: &AppState, name: &str) -> Response {

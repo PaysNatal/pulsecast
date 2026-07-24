@@ -102,24 +102,6 @@
   }
   .accent-chip { display: inline-block; width: 16px; height: 16px; border-radius: 5px; background: var(--accent); vertical-align: -3px; margin-right: 8px; }
   .note { font-size: 12px; color: var(--text-tertiary); margin-top: 6px; line-height: 1.6; }
-
-  .device-list { display: flex; flex-direction: column; gap: 10px; margin-top: 4px; }
-  .dev-row {
-    display: flex; align-items: center; gap: 12px;
-    padding: 12px 14px; background: var(--surface);
-    border: 1px solid var(--border); border-radius: var(--radius-card);
-  }
-  .dev-row .dn { flex: 1; min-width: 0; }
-  .dev-row .dn .n { font-size: 14px; font-weight: 600; }
-  .dev-row .dn .s { font-size: 12px; color: var(--text-secondary); margin-top: 2px; }
-  .pc-btn {
-    font-family: var(--font-cn); font-size: 13px; font-weight: 600;
-    color: #fff; background: var(--accent); border: none;
-    border-radius: 9px; padding: 8px 16px; cursor: pointer;
-  }
-  .pc-btn:disabled { opacity: .55; cursor: default; }
-  .pc-btn-ghost:disabled { opacity: .5; cursor: default; }
-  .ble-box { margin-top: 4px; }
 </style>
 </head>
 <body>
@@ -155,8 +137,8 @@
             <div class="dc-head">
               <span class="pc-status-dot" data-status="live"></span>
               <div class="meta">
-                <div class="n" id="pc-dev-name">模拟心率源</div>
-                <div class="s" id="pc-dev-sub">实时 · 模拟数据</div>
+                <div class="n">Amazfit GTR 4</div>
+                <div class="s">实时 · 蓝牙已连接</div>
               </div>
               <div class="signal" title="信号强"><i></i><i></i><i></i><i></i></div>
             </div>
@@ -167,23 +149,6 @@
           </div>
 
           <div class="row">
-            <div><div class="name">数据源</div><div class="desc">真实蓝牙直连心率设备，无设备时自动回退模拟心率</div></div>
-            <div class="seg" id="seg-source">
-              <button data-v="ble">真实蓝牙</button>
-              <button data-v="mock" class="on">模拟心率</button>
-            </div>
-          </div>
-
-          <div class="ble-box" id="ble-box" hidden>
-            <div class="row">
-              <div><div class="name">扫描心率设备</div><div class="desc">发现附近支持心率服务（0x180D）的蓝牙设备</div></div>
-              <button class="pc-btn-ghost" id="btn-scan">扫描</button>
-            </div>
-            <div id="ble-status" class="note">点击「扫描」以发现附近的蓝牙心率设备（如 Amazfit / Polar H10）。</div>
-            <div id="ble-devices" class="device-list"></div>
-          </div>
-
-          <div class="row">
             <div><div class="name">自动重连</div><div class="desc">设备断开后自动尝试重连</div></div>
             <div class="pc-toggle" role="switch" aria-checked="true" data-toggle></div>
           </div>
@@ -191,6 +156,11 @@
           <div class="row">
             <div><div class="name">信号强度</div><div class="desc">当前连接质量</div></div>
             <div class="signal" title="信号强"><i></i><i></i><i></i><i></i></div>
+          </div>
+
+          <div class="row">
+            <div><div class="name">扫描新设备</div><div class="desc">开启后持续发现附近心率设备</div></div>
+            <div class="pc-toggle" role="switch" aria-checked="false" data-toggle></div>
           </div>
         </section>
 
@@ -230,6 +200,13 @@
               <span class="val" id="scaleVal">1.0×</span>
             </div>
           </div>
+          <div class="row" style="flex-direction:column; align-items:stretch; gap:12px;">
+            <div><div class="name">OBS 浏览器源地址</div><div class="desc">复制后在 OBS 中添加「浏览器源」粘贴即可</div></div>
+            <div style="display:flex; align-items:center; gap:10px;">
+              <code id="obsSourceUrl" style="flex:1; font-size:12px; color:var(--accent); background:var(--surface-2); border:1px solid var(--border); border-radius:8px; padding:8px 12px; word-break:break-all;">http://localhost:4567/obs?style=pill&scale=1</code>
+              <button class="pc-btn" id="copyObsUrl" style="flex:none; font-size:13px; padding:8px 16px;">复制</button>
+            </div>
+          </div>
         </section>
 
         <!-- 端口 -->
@@ -240,7 +217,7 @@
             <div><div class="name">本地服务端口</div><div class="desc">修改后需重启生效</div></div>
             <input type="number" value="4567" min="1024" max="65535" />
           </div>
-          <p class="note">OBS 浏览器源地址：<b>http://localhost:4567/obs</b><br />实时数据 WebSocket：<b>ws://localhost:4567/ws</b></p>
+          <p class="note">OBS 浏览器源地址：<b>http://localhost:4567/obs</b><br />实时数据 WebSocket：<b>ws://localhost:4567</b></p>
         </section>
 
         <!-- 通用 -->
@@ -275,6 +252,41 @@
   </div>
 
   <script>
+    var LS_KEY = "pulsecast_settings";
+    var appToken = "";
+
+    // 获取 token：Tauri IPC 优先，URL 参数兜底
+    (function initToken() {
+      var tp = new URLSearchParams(location.search).get("token");
+      if (window.__TAURI_INTERNALS__ && window.__TAURI_INTERNALS__.invoke) {
+        window.__TAURI_INTERNALS__.invoke("get_ws_token").then(function(tok) {
+          appToken = tok || tp || "";
+          updateObsUrl();
+        }).catch(function() { appToken = tp || ""; updateObsUrl(); });
+      } else {
+        appToken = tp || "";
+        updateObsUrl();
+      }
+    })();
+
+    // API 请求辅助：自动附加 token
+    function apiFetch(url, opts) {
+      opts = opts || {};
+      if (appToken) {
+        opts.headers = Object.assign({}, opts.headers, { "Authorization": "Bearer " + appToken });
+      }
+      return fetch(url, opts);
+    }
+
+    function loadSettings() {
+      try { return JSON.parse(localStorage.getItem(LS_KEY)) || {}; } catch(e) { return {}; }
+    }
+    function saveSettings(s) {
+      localStorage.setItem(LS_KEY, JSON.stringify(s));
+      apiFetch("/api/config", { method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify(s) }).catch(function(){});
+    }
+    var settings = loadSettings();
+
     // 侧边导航切换
     document.querySelectorAll(".nav-item").forEach(function (item) {
       item.addEventListener("click", function () {
@@ -288,17 +300,33 @@
 
     // 开关 toggle
     document.querySelectorAll("[data-toggle]").forEach(function (t) {
+      var key = t.closest(".row").querySelector(".name").textContent;
+      if (settings["toggle_" + key] !== undefined) {
+        t.setAttribute("aria-checked", settings["toggle_" + key] ? "true" : "false");
+      }
       t.addEventListener("click", function () {
-        t.setAttribute("aria-checked", t.getAttribute("aria-checked") === "true" ? "false" : "true");
+        var val = t.getAttribute("aria-checked") !== "true";
+        t.setAttribute("aria-checked", val ? "true" : "false");
+        settings["toggle_" + key] = val;
+        saveSettings(settings);
       });
     });
 
     // 分段控件
     document.querySelectorAll("[data-seg]").forEach(function (seg) {
+      var segName = seg.dataset.seg;
+      if (settings["seg_" + segName]) {
+        seg.querySelectorAll("button").forEach(function (x) { x.classList.remove("on"); });
+        var target = seg.querySelector('[data-v="' + settings["seg_" + segName] + '"]');
+        if (target) target.classList.add("on");
+      }
       seg.querySelectorAll("button").forEach(function (b) {
         b.addEventListener("click", function () {
           seg.querySelectorAll("button").forEach(function (x) { x.classList.remove("on"); });
           b.classList.add("on");
+          settings["seg_" + segName] = b.dataset.v;
+          saveSettings(settings);
+          if (typeof updateObsUrl === "function") updateObsUrl();
         });
       });
     });
@@ -306,96 +334,91 @@
     // 缩放滑块
     var scale = document.querySelector("[data-scale]");
     var scaleVal = document.getElementById("scaleVal");
+    if (settings.obs_scale) { scale.value = settings.obs_scale; scaleVal.textContent = parseFloat(settings.obs_scale).toFixed(1) + "×"; }
     scale.addEventListener("input", function () {
       scaleVal.textContent = parseFloat(scale.value).toFixed(1) + "×";
+      settings.obs_scale = parseFloat(scale.value);
+      saveSettings(settings);
+      if (typeof updateObsUrl === "function") updateObsUrl();
     });
 
-    // ── 数据源 / 真实蓝牙（调用本地服务 API，同源 localhost:4567） ──
-    function api(path, opts) {
-      return fetch(path, opts).then(function (r) {
-        if (!r.ok) throw new Error("HTTP " + r.status);
-        return r.json();
-      });
-    }
-    function setSourceUI(isBle) {
-      document.querySelectorAll("#seg-source button").forEach(function (b) {
-        b.classList.toggle("on", (b.dataset.v === "ble") === isBle);
-      });
-      document.getElementById("ble-box").hidden = !isBle;
-      document.getElementById("pc-dev-name").textContent = isBle ? "真实蓝牙心率" : "模拟心率源";
-      document.getElementById("pc-dev-sub").textContent = isBle ? "实时 · 蓝牙直连" : "实时 · 模拟数据";
-    }
-    // 初始化当前模式
-    api("/api/source").then(function (s) {
-      setSourceUI(s.mode === "ble");
-    }).catch(function () {});
-
-    // 切换数据源
-    document.querySelectorAll("#seg-source button").forEach(function (b) {
-      b.addEventListener("click", function () {
-        var mode = b.dataset.v;
-        setSourceUI(mode === "ble");
-        api("/api/source", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ mode: mode })
-        }).catch(function (e) {
-          document.getElementById("ble-status").textContent = "切换失败：" + e.message;
-        });
-      });
+    // 端口
+    var portInput = document.querySelector('#port input[type="number"]');
+    if (settings.port) portInput.value = settings.port;
+    portInput.addEventListener("change", function () {
+      settings.port = parseInt(portInput.value) || 4567;
+      saveSettings(settings);
     });
 
-    // 扫描心率设备
-    document.getElementById("btn-scan").addEventListener("click", function (e) {
-      var btn = e.currentTarget;
-      btn.disabled = true; btn.textContent = "扫描中…";
-      var st = document.getElementById("ble-status");
-      st.textContent = "正在扫描附近心率设备…";
-      api("/api/ble/scan").then(function (r) {
-        var devs = r.devices || [];
-        renderBleDevices(devs);
-        st.textContent = devs.length
-          ? "发现 " + devs.length + " 台设备，点击「连接」"
-          : "未发现心率设备，请确认设备已开启广播并靠近电脑。";
-      }).catch(function (err) {
-        st.textContent = "扫描失败：" + (err.message || err);
-      }).finally(function () {
-        btn.disabled = false; btn.textContent = "扫描";
-      });
-    });
+    // 页面加载时从服务端同步配置（Rust 端持久化）
+    apiFetch("/api/config").then(function(r){ return r.json(); }).then(function(remote) {
+      var merged = Object.assign({}, remote, settings);
+      settings = merged;
+      localStorage.setItem(LS_KEY, JSON.stringify(settings));
+    }).catch(function(){});
 
-    function renderBleDevices(devs) {
-      var box = document.getElementById("ble-devices");
-      box.innerHTML = "";
-      devs.forEach(function (d) {
-        var row = document.createElement("div");
-        row.className = "dev-row";
-        var rssi = d.rssi != null ? "信号 " + d.rssi + " dBm" : "心率设备";
-        var meta = document.createElement("div");
-        meta.className = "dn";
-        meta.innerHTML = '<div class="n"></div><div class="s"></div>';
-        meta.querySelector(".n").textContent = d.name;
-        meta.querySelector(".s").textContent = rssi;
-        var btn = document.createElement("button");
-        btn.className = "pc-btn"; btn.textContent = "连接";
-        btn.addEventListener("click", function () {
-          btn.disabled = true; btn.textContent = "连接中…";
-          api("/api/source", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ mode: "ble", device: d.name })
-          }).then(function () {
-            document.getElementById("ble-status").textContent = "已选择「" + d.name + "」，正在连接…";
-          }).catch(function (err) {
-            document.getElementById("ble-status").textContent = "连接失败：" + (err.message || err);
-            btn.disabled = false; btn.textContent = "连接";
-          });
-        });
-        row.appendChild(meta);
-        row.appendChild(btn);
-        box.appendChild(row);
+    // OBS 浏览器源 URL 生成 + 一键复制
+    function updateObsUrl() {
+      var style = settings.seg_style || "pill";
+      var sc = settings.obs_scale || 1;
+      var port = settings.port || 4567;
+      var url = "http://localhost:" + port + "/obs?style=" + style + "&scale=" + sc;
+      if (appToken) url += "&token=" + encodeURIComponent(appToken);
+      var el = document.getElementById("obsSourceUrl");
+      if (el) el.textContent = url;
+    }
+    updateObsUrl();
+    var copyObsBtn = document.getElementById("copyObsUrl");
+    if (copyObsBtn) {
+      copyObsBtn.addEventListener("click", function() {
+        var url = document.getElementById("obsSourceUrl").textContent;
+        if (navigator.clipboard) { navigator.clipboard.writeText(url); }
+        else { var ta = document.createElement("textarea"); ta.value = url; document.body.appendChild(ta); ta.select(); document.execCommand("copy"); document.body.removeChild(ta); }
+        copyObsBtn.textContent = "已复制";
+        setTimeout(function(){ copyObsBtn.textContent = "复制"; }, 1500);
       });
     }
+
+    // BLE 断连状态提示（WS 监听）
+    (function() {
+      var toastEl = document.createElement("div");
+      toastEl.style.cssText = "position:fixed;top:16px;left:50%;transform:translateX(-50%);background:var(--status-device-lost,#F2994A);color:#fff;font-size:13px;font-weight:600;padding:8px 18px;border-radius:20px;opacity:0;transition:opacity 0.3s;pointer-events:none;z-index:999;";
+      document.body.appendChild(toastEl);
+      var toastTimer = null;
+      function showDeviceToast(msg) {
+        toastEl.textContent = msg;
+        toastEl.style.opacity = "1";
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(function(){ toastEl.style.opacity = "0"; }, 4000);
+      }
+      try {
+        var wsUrl = "ws://" + location.host + "/ws";
+        // Tauri 桌面端：通过 IPC 获取 token；浏览器直接访问：从 URL 参数读取
+        var tokenParam = new URLSearchParams(location.search).get("token");
+        function connectWs(tok) {
+          var url = tok ? wsUrl + "?token=" + encodeURIComponent(tok) : wsUrl;
+          var ws = new WebSocket(url);
+          ws.onmessage = function(e) {
+            try {
+              var f = JSON.parse(e.data);
+              if (f.status === "device_lost") {
+                showDeviceToast("设备已断开，正在自动重连…");
+              } else if (f.status === "live" && toastEl.style.opacity === "1") {
+                toastEl.textContent = "设备已重新连接";
+                toastEl.style.background = "var(--status-live,#36C28C)";
+                clearTimeout(toastTimer);
+                toastTimer = setTimeout(function(){ toastEl.style.opacity = "0"; toastEl.style.background = "var(--status-device-lost,#F2994A)"; }, 2000);
+              }
+            } catch(_) {}
+          };
+        }
+        if (window.__TAURI_INTERNALS__ && window.__TAURI_INTERNALS__.invoke) {
+          window.__TAURI_INTERNALS__.invoke("get_ws_token").then(function(tok) { connectWs(tok); }).catch(function() { connectWs(tokenParam || ""); });
+        } else {
+          connectWs(tokenParam || "");
+        }
+      } catch(_) {}
+    })();
   </script>
 </body>
 </html>

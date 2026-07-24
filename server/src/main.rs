@@ -46,6 +46,10 @@ struct Cli {
     /// 心率低阈值（BPM 低于触发 Low 动作）；需配合 --hr-high 同时生效
     #[arg(long)]
     hr_low: Option<u32>,
+
+    /// WS 连接认证 token（不指定则不校验）
+    #[arg(long)]
+    token: Option<String>,
 }
 
 #[tokio::main]
@@ -64,6 +68,7 @@ async fn main() {
             (Some(h), Some(l)) => Some(pulsecast_server::ThresholdCfg { high: h, low: l }),
             _ => None,
         },
+        token: cli.token,
     })
     .await;
 }

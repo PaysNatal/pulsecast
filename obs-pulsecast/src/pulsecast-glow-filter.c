@@ -114,7 +114,7 @@ static void *glow_create(obs_data_t *settings, obs_source_t *source)
     d->flash_until = 0;
 
     d->effect = gs_effect_create(glow_effect_src, NULL, NULL);
-    d->ws = pc_ws_connect(d->host, d->port, "/", on_frame, d);
+    d->ws = pc_ws_connect(d->host, d->port, "/ws", on_frame, d);
     return d;
 }
 
@@ -151,7 +151,7 @@ static void glow_update(void *priv, obs_data_t *settings)
     pthread_mutex_unlock(&d->lock);
     if (changed && d->ws) {
         pc_ws_destroy(d->ws);
-        d->ws = pc_ws_connect(d->host, d->port, "/", on_frame, d);
+        d->ws = pc_ws_connect(d->host, d->port, "/ws", on_frame, d);
     }
 }
 
@@ -221,9 +221,13 @@ static void glow_video_render(void *priv, gs_effect_t *effect)
     float strength = glow_compute(d, &flash_ratio);
     gs_effect_set_float(gs_effect_get_param_by_name(d->effect, "glow_strength"),
                         strength);
+    uint32_t cx = obs_source_get_base_width(d->source);
+    uint32_t cy = obs_source_get_base_height(d->source);
+    if (cx == 0) cx = 1920;
+    if (cy == 0) cy = 1080;
     gs_effect_set_vec2(gs_effect_get_param_by_name(d->effect, "uv_size"),
-                       (const struct vec2 *)&(struct vec2){1.0f / 1920.0f,
-                                                          1.0f / 1080.0f});
+                       (const struct vec2 *)&(struct vec2){1.0f / (float)cx,
+                                                          1.0f / (float)cy});
     /* 基础色 #FF4D6D；高光时向白色靠拢，模拟“高光闪烁白色脉冲” */
     struct vec4 tint = {
         1.0f,

@@ -6,13 +6,36 @@
 // 此处不重复启动，避免端口冲突。
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+#[cfg(not(debug_assertions))]
+use std::path::PathBuf;
+use tauri::State;
+
+struct WsToken(String);
+
+fn generate_token() -> String {
+    use std::collections::hash_map::DefaultHasher;
+    use std::hash::{Hash, Hasher};
+    let mut hasher = DefaultHasher::new();
+    std::time::SystemTime::now().hash(&mut hasher);
+    std::process::id().hash(&mut hasher);
+    format!("{:016x}", hasher.finish())
+}
+
+#[tauri::command]
+fn get_ws_token(token: State<'_, WsToken>) -> String {
+    token.0.clone()
+}
+
 fn main() {
+    let token = generate_token();
+
     tauri::Builder::default()
-        .setup(|app| {
-            let _ = &app; // 调试构建下 app 仅在此处被引用，避免未使用告警
+        .manage(WsToken(token.clone()))
+        .invoke_handler(tauri::generate_handler![get_ws_token])
+        .setup(move |app| {
+            let _ = &app;
             #[cfg(not(debug_assertions))]
             {
-                // 打包后前端资源位于 resource_dir 根（由 frontendDist 复制而来）
                 let webroot = app
                     .path()
                     .resource_dir()
@@ -21,17 +44,13 @@ fn main() {
                     pulsecast_server::Opts {
                         webroot,
                         port: 4567,
-                        // 默认尝试真实 BLE 心率源；无设备/无蓝牙适配器时由服务端自动回退模拟源
                         mock: false,
                         real: true,
-                        // OSC 转发由桌面端设置动态控制，默认关闭；
-                        // 后续通过 Tauri 命令热切换（重启内嵌任务）。
                         vrchat: false,
                         osc_addr: "127.0.0.1:9000".to_string(),
                         chatbox: false,
-                        // 阈值动作由桌面端设置动态控制，默认关闭；
-                        // 后续通过 Tauri 命令热切换（重启内嵌任务）。
                         threshold: None,
+                        token: Some(token),
                     },
                 ));
             }

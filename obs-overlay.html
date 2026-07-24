@@ -172,7 +172,9 @@
   const q = new URLSearchParams(location.search);
   const STYLE = ["pill", "ecg", "number"].includes(q.get("style")) ? q.get("style") : "pill";
   const SCALE = Math.max(0.4, parseFloat(q.get("scale")) || 1);
-  const WS_URL = q.get("ws") || "ws://localhost:4567/ws";
+  const TOKEN = q.get("token") || "";
+  const WS_BASE = q.get("ws") || "ws://localhost:4567/ws";
+  const WS_URL = TOKEN ? WS_BASE + "?token=" + encodeURIComponent(TOKEN) : WS_BASE;
   const FORCE_DEMO = q.get("demo") === "1"; // 强制演示模式，便于 OBS 预览调试
 
   document.documentElement.style.setProperty("--scale", SCALE);

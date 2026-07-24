@@ -207,7 +207,7 @@ static void *hr_create(obs_data_t *settings, obs_source_t *source)
     d->text = text;
 
     /* 连接本地服务 */
-    d->ws = pc_ws_connect(d->host, d->port, "/", on_frame, d);
+    d->ws = pc_ws_connect(d->host, d->port, "/ws", on_frame, d);
 
     return d;
 }
@@ -256,7 +256,7 @@ static void hr_update(void *priv, obs_data_t *settings)
     if (changed && d->ws) {
         /* 重连 */
         pc_ws_destroy(d->ws);
-        d->ws = pc_ws_connect(d->host, d->port, "/", on_frame, d);
+        d->ws = pc_ws_connect(d->host, d->port, "/ws", on_frame, d);
     }
     d->bpm_dirty = 1;
 }

@@ -58,7 +58,7 @@ static void *shake_create(obs_data_t *settings, obs_source_t *source)
     if (d->amplitude <= 0.0f)
         d->amplitude = 8.0f;
 
-    d->ws = pc_ws_connect(d->host, d->port, "/", on_frame, d);
+    d->ws = pc_ws_connect(d->host, d->port, "/ws", on_frame, d);
     return d;
 }
 
@@ -92,7 +92,7 @@ static void shake_update(void *priv, obs_data_t *settings)
     pthread_mutex_unlock(&d->lock);
     if (changed && d->ws) {
         pc_ws_destroy(d->ws);
-        d->ws = pc_ws_connect(d->host, d->port, "/", on_frame, d);
+        d->ws = pc_ws_connect(d->host, d->port, "/ws", on_frame, d);
     }
 }
 
