@@ -45,7 +45,11 @@ fn main() {
                 .build()?;
 
             TrayIconBuilder::with_id("pulsecast-tray")
-                .icon(app.default_window_icon().cloned().unwrap())
+                .icon(
+                    app.default_window_icon()
+                        .cloned()
+                        .expect("tauri.conf.json 缺少默认窗口图标"),
+                )
                 .tooltip("怦然 PulseCast")
                 .menu(&menu)
                 .show_menu_on_left_click(true)
@@ -93,14 +97,16 @@ fn main() {
                 let saved_device = cfg.device_name.clone();
 
                 let token_clone = token.clone();
+                let port = cfg.port.unwrap_or(4567);
+                let osc_addr = cfg.osc_addr.clone().unwrap_or_else(|| "127.0.0.1:9000".to_string());
                 tauri::async_runtime::spawn(async move {
                     pulsecast_server::run_server(pulsecast_server::Opts {
                         webroot,
-                        port: 4567,
+                        port,
                         mock: false,
                         real: true,
                         vrchat: cfg.vrchat.unwrap_or(false),
-                        osc_addr: "127.0.0.1:9000".to_string(),
+                        osc_addr,
                         chatbox: cfg.chatbox.unwrap_or(false),
                         threshold: match (cfg.hr_high, cfg.hr_low) {
                             (Some(h), Some(l)) => {
@@ -114,10 +120,20 @@ fn main() {
                     .await;
                 });
 
-                // 自动更新 OBS 浏览器源 URL（token 每次启动都变）
+                // 自动更新 OBS 浏览器源 URL（轮询等待服务启动，替代硬编码 sleep）
                 let obs_token = token.clone();
+                let obs_port = port;
                 tauri::async_runtime::spawn(async move {
-                    tokio::time::sleep(std::time::Duration::from_secs(4)).await;
+                    // 轮询等待服务就绪（最多 15 秒）
+                    for _ in 0..30 {
+                        tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+                        if tokio::net::TcpStream::connect(format!("127.0.0.1:{obs_port}"))
+                            .await
+                            .is_ok()
+                        {
+                            break;
+                        }
+                    }
                     let cfg = pulsecast_server::config::load().await;
                     let addr = cfg
                         .obs_ws_addr
@@ -125,10 +141,13 @@ fn main() {
                         .unwrap_or("ws://localhost:4455");
                     let pwd = cfg.obs_ws_password.as_deref();
                     let url = format!(
-                        "http://localhost:4567/obs?style=pill&token={}",
+                        "http://localhost:{obs_port}/obs?style=pill&token={}",
                         obs_token
                     );
-                    let _ = pulsecast_server::obs_ws::inject(addr, pwd, &url).await;
+                    match pulsecast_server::obs_ws::inject(addr, pwd, &url).await {
+                        Ok(r) => log::info!("[pulsecast] OBS 注入: {}", r.message),
+                        Err(e) => log::warn!("[pulsecast] OBS 注入失败: {e:#}"),
+                    }
                 });
             }
 

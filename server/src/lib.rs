@@ -451,7 +451,7 @@ impl SourceController {
     }
 }
 
-/// BLE 热源：循环启动 run_hr；断线/异常自动重试；matcher 变更时 run_hr 自行重连。
+/// BLE 热源：循环启动 run_hr；断线/异常指数退避重试；matcher 变更时 run_hr 自行重连。
 #[cfg(feature = "ble")]
 async fn ble_task(
     tx: broadcast::Sender<HrFrame>,
@@ -459,12 +459,14 @@ async fn ble_task(
     matcher_rx: watch::Receiver<Option<String>>,
     _my: SourceMode,
 ) {
+    let mut backoff_secs: u64 = 3;
     loop {
         match crate::ble::run_hr(tx.clone(), current.clone(), matcher_rx.clone()).await {
-            Ok(()) => break, // run_hr 仅在 matcher 变更 / 致命错误时返回
+            Ok(()) => break,
             Err(e) => {
-                log::warn!("BLE 热源异常，3s 后重试：{e}");
-                tokio::time::sleep(Duration::from_secs(3)).await;
+                log::warn!("BLE 热源异常，{backoff_secs}s 后重试：{e}");
+                tokio::time::sleep(Duration::from_secs(backoff_secs)).await;
+                backoff_secs = (backoff_secs * 2).min(60); // 3→6→12→24→48→60(cap)
             }
         }
     }
@@ -683,8 +685,18 @@ pub async fn run_server(opts: Opts) {
         }
     };
     log::info!("怦然 PulseCast 服务已启动 → http://localhost:{}", opts.port);
-    if let Err(e) = axum::serve(listener, app).await {
-        log::error!("服务异常退出: {e}");
+
+    // 优雅关机：监听 Ctrl+C，停止接受新连接
+    let server = axum::serve(listener, app);
+    tokio::select! {
+        result = server => {
+            if let Err(e) = result {
+                log::error!("服务异常退出: {e}");
+            }
+        }
+        _ = tokio::signal::ctrl_c() => {
+            log::info!("收到 Ctrl+C，正在关闭服务…");
+        }
     }
 }
 

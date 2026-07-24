@@ -35,6 +35,9 @@ pub struct AppConfig {
     /// 直播间地址（预留，v1.x 弹幕/礼物联动用）
     #[serde(default)]
     pub live_room_url: Option<String>,
+    /// VRChat OSC 地址（默认 127.0.0.1:9000）
+    #[serde(default)]
+    pub osc_addr: Option<String>,
 }
 
 pub fn config_path() -> PathBuf {

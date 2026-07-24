@@ -232,10 +232,19 @@ pub async fn run_hr(
     }
 }
 
-/// 设备是否广播心率服务 0x180D。
-/// 仅匹配显式声明 HR Service 的设备，避免盲目连接手机/耳机等无关外设。
+/// 设备是否可能是心率源：
+/// 1. 广播 HR Service UUID（标准设备）
+/// 2. 或广播名匹配已知设备 Profile（小米/华为等不广播 HR UUID 的设备）
 fn advertises_hr(props: &btleplug::api::PeripheralProperties) -> bool {
-    props.services.contains(&HR_SERVICE)
+    if props.services.contains(&HR_SERVICE) {
+        return true;
+    }
+    // 回退：检查广播名是否匹配已知设备 Profile
+    if let Some(name) = &props.local_name {
+        crate::device_profiles::match_profile(name).is_some()
+    } else {
+        false
+    }
 }
 
 /// 解析 HR Measurement (0x2A37)。
@@ -246,19 +255,24 @@ fn parse_hr(value: &[u8]) -> Option<u32> {
         return None;
     }
     let flags = value[0];
-    if flags & 0x01 == 0 {
+    let bpm = if flags & 0x01 == 0 {
         if value.len() < 2 {
             return None;
         }
-        Some(value[1] as u32)
+        value[1] as u32
     } else {
         if value.len() < 3 {
             return None;
         }
         let lo = value[1] as u32;
         let hi = value[2] as u32;
-        Some(lo | (hi << 8))
+        lo | (hi << 8)
+    };
+    // 生理范围校验：拒绝垃圾 BLE 数据
+    if !(20..=300).contains(&bpm) {
+        return None;
     }
+    Some(bpm)
 }
 
 #[cfg(test)]
@@ -271,8 +285,8 @@ mod tests {
     }
     #[test]
     fn parse_uint16() {
-        // 0x03E8 = 1000 bpm
-        assert_eq!(parse_hr(&[0x01, 0xE8, 0x03]), Some(1000));
+        // 0x0078 = 120 bpm (16-bit LE)
+        assert_eq!(parse_hr(&[0x01, 0x78, 0x00]), Some(120));
     }
     #[test]
     fn parse_uint8_with_energy_and_rr() {
