@@ -39,6 +39,9 @@ int pc_ws_parse_int_field(const char *json, const char *key);
    成功返回 1 并把 kind 写入 out，否则返回 0。 */
 int pc_ws_parse_control_kind(const char *json, char *out, size_t outsz);
 
+/* 从 JSON 提取 "intensity":<float>（心率梯度 0.0~1.0）。找不到返回 -1.0。 */
+float pc_ws_parse_intensity(const char *json);
+
 #ifdef __cplusplus
 }
 #endif

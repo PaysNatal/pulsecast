@@ -467,3 +467,14 @@ void pc_ws_destroy(pc_ws_t *ws)
     free(ws->path);
     free(ws);
 }
+
+float pc_ws_parse_intensity(const char *json)
+{
+    const char *p = strstr(json, "\"intensity\"");
+    if (!p)
+        return -1.0f;
+    p = strchr(p, ':');
+    if (!p)
+        return -1.0f;
+    return (float)atof(p + 1);
+}

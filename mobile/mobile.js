@@ -304,6 +304,45 @@
     if (txt) flashToast(txt);
   }
 
+  /* ───────── 名场面 ───────── */
+  let lastHighlightCount = 0;
+  async function fetchHighlights() {
+    try {
+      const r = await apiFetch(`/api/highlights`);
+      const events = await r.json();
+      if (!Array.isArray(events) || events.length === 0) return;
+      if (events.length === lastHighlightCount) return;
+      lastHighlightCount = events.length;
+      const list = $("#highlights-list");
+      list.innerHTML = "";
+      events.slice(-5).reverse().forEach((ev) => {
+        const t = new Date(ev.at);
+        const ts = `${String(t.getHours()).padStart(2,"0")}:${String(t.getMinutes()).padStart(2,"0")}:${String(t.getSeconds()).padStart(2,"0")}`;
+        const dur = (ev.duration_ms / 1000).toFixed(1);
+        const el = document.createElement("div");
+        el.style.cssText = "display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--surface-2);border:1px solid var(--border);border-radius:10px;";
+        el.innerHTML = `<span style="font-size:20px;">🔥</span>
+          <div style="flex:1;"><div style="font-size:14px;font-weight:700;color:var(--accent);">${ev.peak_bpm} BPM</div>
+          <div style="font-size:11px;color:var(--text-secondary);">${ts} · 持续 ${dur}s</div></div>
+          ${ev.replay_saved ? '<span style="font-size:11px;color:var(--status-live);">已保存</span>' : ''}`;
+        list.appendChild(el);
+      });
+    } catch (_) {}
+  }
+  setInterval(fetchHighlights, 10000);
+
+  $("#btn-share-highlights").addEventListener("click", async () => {
+    try {
+      const r = await apiFetch(`/api/highlights`);
+      const events = await r.json();
+      if (!Array.isArray(events) || events.length === 0) { showToast("暂无名场面"); return; }
+      const peak = Math.max(...events.map(e => e.peak_bpm));
+      const text = `本场最高心率 ${peak} BPM 🔥 #怦然PulseCast`;
+      await navigator.clipboard.writeText(text);
+      showToast("已复制分享文案");
+    } catch (_) { showToast("复制失败"); }
+  });
+
   /* ───────── 启动 ───────── */
   initSettingsUI();
   renderDevices(KNOWN);

@@ -23,6 +23,7 @@ endif()
 add_library(obs-pulsecast MODULE
     src/plugin-main.c
     src/pc-ws.c
+    src/pc-ws-manager.c
     src/pulsecast-hr-source.c
     src/pulsecast-shake-filter.c
     src/pulsecast-glow-filter.c

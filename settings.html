@@ -194,6 +194,15 @@
             </div>
           </div>
           <div class="row">
+            <div><div class="name">视觉主题</div><div class="desc">OBS 浏览器源 URL 附加 &theme=xxx</div></div>
+            <div class="seg" data-seg="theme">
+              <button class="on" data-v="default">默认</button>
+              <button data-v="esports">电竞红</button>
+              <button data-v="cyber">赛博霓虹</button>
+              <button data-v="pixel">像素复古</button>
+            </div>
+          </div>
+          <div class="row">
             <div><div class="name">缩放</div><div class="desc">叠层整体大小，0.4–2.0 倍</div></div>
             <div class="slider">
               <input type="range" min="0.4" max="2" step="0.1" value="1" data-scale />
@@ -374,7 +383,9 @@
       var style = settings.seg_style || "pill";
       var sc = settings.obs_scale || 1;
       var port = settings.port || 4567;
+      var theme = settings.seg_theme || "default";
       var url = "http://localhost:" + port + "/obs?style=" + style + "&scale=" + sc;
+      if (theme !== "default") url += "&theme=" + theme;
       if (appToken) url += "&token=" + encodeURIComponent(appToken);
       var el = document.getElementById("obsSourceUrl");
       if (el) el.textContent = url;

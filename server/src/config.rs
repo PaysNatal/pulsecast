@@ -61,19 +61,23 @@ fn dirs_path() -> PathBuf {
     }
 }
 
-pub fn load() -> AppConfig {
+pub async fn load() -> AppConfig {
     let path = config_path();
-    match std::fs::read_to_string(&path) {
+    match tokio::fs::read_to_string(&path).await {
         Ok(s) => serde_json::from_str(&s).unwrap_or_default(),
         Err(_) => AppConfig::default(),
     }
 }
 
-pub fn save(cfg: &AppConfig) -> Result<(), String> {
+pub async fn save(cfg: &AppConfig) -> Result<(), String> {
     let path = config_path();
     if let Some(parent) = path.parent() {
-        std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+        tokio::fs::create_dir_all(parent)
+            .await
+            .map_err(|e| e.to_string())?;
     }
     let json = serde_json::to_string_pretty(cfg).map_err(|e| e.to_string())?;
-    std::fs::write(&path, json).map_err(|e| e.to_string())
+    tokio::fs::write(&path, json)
+        .await
+        .map_err(|e| e.to_string())
 }

@@ -176,8 +176,29 @@
   const WS_BASE = q.get("ws") || "ws://localhost:4567/ws";
   const WS_URL = TOKEN ? WS_BASE + "?token=" + encodeURIComponent(TOKEN) : WS_BASE;
   const FORCE_DEMO = q.get("demo") === "1"; // 强制演示模式，便于 OBS 预览调试
+  const THEME = q.get("theme") || "default";
 
   document.documentElement.style.setProperty("--scale", SCALE);
+
+  // ── 主题系统 ──
+  const THEMES = {
+    default:  { accent: "#FF4D6D", bg: "rgba(14,17,22,0.55)", border: "rgba(255,255,255,0.08)", font: "" },
+    esports:  { accent: "#FF2222", bg: "rgba(20,5,5,0.65)",   border: "rgba(255,50,50,0.15)",  font: "" },
+    cyber:    { accent: "#00FFFF", bg: "rgba(5,10,25,0.6)",   border: "rgba(0,255,255,0.12)",  font: "" },
+    pixel:    { accent: "#33FF33", bg: "rgba(5,20,5,0.6)",    border: "rgba(50,255,50,0.12)",  font: "'Courier New', monospace" },
+  };
+  (function applyTheme() {
+    const t = THEMES[THEME] || THEMES.default;
+    const s = document.documentElement.style;
+    s.setProperty("--accent", t.accent);
+    if (t.font) s.setProperty("--font-num", t.font);
+    // 注入主题覆盖样式
+    const css = document.createElement("style");
+    css.textContent = `.pill { background: ${t.bg} !important; border-color: ${t.border} !important; }` +
+      `.ecg-wrap { border-color: ${t.border} !important; }` +
+      `.number { text-shadow: 0 0 30px ${t.accent}44 !important; }`;
+    document.head.appendChild(css);
+  })();
 
   // ── 状态 ──
   const STATUS_TEXT = {

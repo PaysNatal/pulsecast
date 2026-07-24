@@ -12,6 +12,7 @@
  */
 #include "pulsecast-atmosphere-filter.h"
 #include "pc-ws.h"
+#include "pc-ws-manager.h"
 
 #include <pthread.h>
 #include <stdio.h>
@@ -62,7 +63,7 @@ struct atmosphere_data {
     obs_source_t *source;
     char *host;
     int port;
-    pc_ws_t *ws;
+    pc_ws_mgr_t *ws;
     pthread_mutex_t lock;
     float intensity;   /* 心率梯度 0~1 */
     int bpm;
@@ -124,7 +125,7 @@ static void *atmosphere_create(obs_data_t *settings, obs_source_t *source)
     d->effect = gs_effect_create(atmosphere_effect_src, NULL, NULL);
     if (!d->effect)
         blog(LOG_ERROR, "[pulsecast-atmosphere] 着色器编译失败");
-    d->ws = pc_ws_connect(d->host, d->port, "/ws", on_frame, d);
+    d->ws = pc_ws_mgr_acquire(d->host, d->port, on_frame, d);
     return d;
 }
 
@@ -132,7 +133,7 @@ static void atmosphere_destroy(void *priv)
 {
     struct atmosphere_data *d = (struct atmosphere_data *)priv;
     if (!d) return;
-    if (d->ws) pc_ws_destroy(d->ws);
+    if (d->ws) pc_ws_mgr_release(d->ws, on_frame, d);
     if (d->effect) gs_effect_destroy(d->effect);
     pthread_mutex_destroy(&d->lock);
     bfree(d->host);
@@ -154,8 +155,8 @@ static void atmosphere_update(void *priv, obs_data_t *settings)
     }
     pthread_mutex_unlock(&d->lock);
     if (changed && d->ws) {
-        pc_ws_destroy(d->ws);
-        d->ws = pc_ws_connect(d->host, d->port, "/ws", on_frame, d);
+        pc_ws_mgr_release(d->ws, on_frame, d);
+        d->ws = pc_ws_mgr_acquire(d->host, d->port, on_frame, d);
     }
 }
 

@@ -9,6 +9,7 @@
  */
 #include "pulsecast-hr-source.h"
 #include "pc-ws.h"
+#include "pc-ws-manager.h"
 
 #include <obs-frontend-api.h> /* 阈值动作：进程内切换场景 */
 
@@ -60,7 +61,7 @@ struct hr_data {
     char *host;
     int port;
 
-    pc_ws_t *ws;
+    pc_ws_mgr_t *ws;
     pthread_mutex_t lock;
     int bpm;
     int bpm_dirty; /* 主线程据此刷新文字 */
@@ -207,7 +208,7 @@ static void *hr_create(obs_data_t *settings, obs_source_t *source)
     d->text = text;
 
     /* 连接本地服务 */
-    d->ws = pc_ws_connect(d->host, d->port, "/ws", on_frame, d);
+    d->ws = pc_ws_mgr_acquire(d->host, d->port, on_frame, d);
 
     return d;
 }
@@ -218,7 +219,7 @@ static void hr_destroy(void *priv)
     if (!d)
         return;
     if (d->ws)
-        pc_ws_destroy(d->ws);
+        pc_ws_mgr_release(d->ws, on_frame, d);
     if (d->text)
         obs_source_release(d->text);
     pthread_mutex_destroy(&d->lock);
@@ -255,8 +256,8 @@ static void hr_update(void *priv, obs_data_t *settings)
 
     if (changed && d->ws) {
         /* 重连 */
-        pc_ws_destroy(d->ws);
-        d->ws = pc_ws_connect(d->host, d->port, "/ws", on_frame, d);
+        pc_ws_mgr_release(d->ws, on_frame, d);
+        d->ws = pc_ws_mgr_acquire(d->host, d->port, on_frame, d);
     }
     d->bpm_dirty = 1;
 }

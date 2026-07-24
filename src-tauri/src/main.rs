@@ -91,7 +91,7 @@ fn main() {
                     .unwrap_or_else(|_| PathBuf::from("."));
 
                 // 配置零感知：读取上次保存的设备名，自动重连
-                let cfg = pulsecast_server::config::load();
+                let cfg = pulsecast_server::config::load().await;
                 let saved_device = cfg.device_name.clone();
 
                 let token_clone = token.clone();
@@ -120,7 +120,7 @@ fn main() {
                 let obs_token = token.clone();
                 tauri::async_runtime::spawn(async move {
                     tokio::time::sleep(std::time::Duration::from_secs(4)).await;
-                    let cfg = pulsecast_server::config::load();
+                    let cfg = pulsecast_server::config::load().await;
                     let addr = cfg
                         .obs_ws_addr
                         .as_deref()

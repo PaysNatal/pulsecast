@@ -177,11 +177,16 @@ pub async fn run_hr(
                                     .and_then(|p| p.local_name.clone())
                                     .unwrap_or_else(|| "心率设备".to_string());
                                 let rssi = props.and_then(|p| p.rssi);
+                                // 断连预测：RSSI 持续低于 -80 时提前警告
+                                let msg = match rssi {
+                                    Some(r) if r < -80 => "信号弱，请靠近设备".to_string(),
+                                    _ => String::new(),
+                                };
                                 let frame = HrFrame {
                                     bpm,
                                     status: HrStatus::Live,
                                     device: Some(DeviceInfo { name, battery: None, rssi }),
-                                    message: String::new(),
+                                    message: msg,
                                     trigger: None,
                                     threshold: None,
                                     intensity: 0.0,

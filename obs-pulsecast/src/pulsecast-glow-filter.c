@@ -7,6 +7,7 @@
  */
 #include "pulsecast-glow-filter.h"
 #include "pc-ws.h"
+#include "pc-ws-manager.h"
 
 #include <pthread.h>
 #include <stdio.h>
@@ -54,9 +55,10 @@ struct glow_data {
     obs_source_t *source;
     char *host;
     int port;
-    pc_ws_t *ws;
+    pc_ws_mgr_t *ws;
     pthread_mutex_t lock;
     int bpm;
+    float intensity;       /* 心率梯度 0~1，驱动发光强度 */
     gs_effect_t *effect;
     float base_strength;   /* 心跳节拍基线发光强度 */
     float flash_strength;  /* 高光闪烁额外峰值强度 */
@@ -84,6 +86,9 @@ static void on_frame(void *user, const char *json, int bpm)
     pthread_mutex_lock(&d->lock);
     if (bpm > 0)
         d->bpm = bpm;
+    float inten = pc_ws_parse_intensity(json);
+    if (inten >= 0.0f)
+        d->intensity = inten;
     pthread_mutex_unlock(&d->lock);
 }
 
@@ -100,6 +105,7 @@ static void *glow_create(obs_data_t *settings, obs_source_t *source)
         return NULL;
     d->source = source;
     d->bpm = 72;
+    d->intensity = 0.0f;
     pthread_mutex_init(&d->lock, NULL);
     d->host = bstrdup(obs_data_get_string(settings, "host") ?: DEFAULT_HOST);
     d->port = (int)obs_data_get_int(settings, "port");
@@ -116,7 +122,7 @@ static void *glow_create(obs_data_t *settings, obs_source_t *source)
     d->effect = gs_effect_create(glow_effect_src, NULL, NULL);
     if (!d->effect)
         blog(LOG_ERROR, "[pulsecast-glow] 着色器编译失败，发光滤镜不可用");
-    d->ws = pc_ws_connect(d->host, d->port, "/ws", on_frame, d);
+    d->ws = pc_ws_mgr_acquire(d->host, d->port, on_frame, d);
     return d;
 }
 
@@ -126,7 +132,7 @@ static void glow_destroy(void *priv)
     if (!d)
         return;
     if (d->ws)
-        pc_ws_destroy(d->ws);
+        pc_ws_mgr_release(d->ws, on_frame, d);
     if (d->effect)
         gs_effect_destroy(d->effect);
     pthread_mutex_destroy(&d->lock);
@@ -152,8 +158,8 @@ static void glow_update(void *priv, obs_data_t *settings)
     }
     pthread_mutex_unlock(&d->lock);
     if (changed && d->ws) {
-        pc_ws_destroy(d->ws);
-        d->ws = pc_ws_connect(d->host, d->port, "/ws", on_frame, d);
+        pc_ws_mgr_release(d->ws, on_frame, d);
+        d->ws = pc_ws_mgr_acquire(d->host, d->port, on_frame, d);
     }
 }
 
@@ -167,12 +173,16 @@ static float glow_compute(struct glow_data *d, float *flash_ratio_out)
     float base = d->base_strength;
     float flash_peak = d->flash_strength;
     uint64_t flash_until = d->flash_until;
+    float intensity = d->intensity;
     pthread_mutex_unlock(&d->lock);
+
+    /* 梯度缩放：低心率时发光休眠，高心率时全开 */
+    float scale = 0.15f + 0.85f * intensity; /* 0.15~1.0 */
 
     /* 心跳节拍脉冲（尖峰在每次心跳起始） */
     float beat;
     if (bpm <= 0) {
-        beat = base * 0.5f;
+        beat = base * 0.5f * scale;
     } else {
         uint64_t now_ms = os_gettime_ns() / 1000000;
         float period_ms = 60000.0f / (float)bpm;
@@ -182,7 +192,7 @@ static float glow_compute(struct glow_data *d, float *flash_ratio_out)
             pulse = phase / 0.06f;
         else
             pulse = expf(-(phase - 0.06f) * 4.0f);
-        beat = base * (0.4f + 0.6f * pulse);
+        beat = base * (0.4f + 0.6f * pulse) * scale;
     }
 
     /* 高光闪烁：FLASH_MS 内快速攻击(前15%) + 指数衰减 */

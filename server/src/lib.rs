@@ -740,13 +740,13 @@ async fn scan_handler(State(state): State<AppState>) -> Response {
 
 /// GET /api/config → 读取持久化配置
 async fn get_config() -> Response {
-    let cfg = config::load();
+    let cfg = config::load().await;
     Json(cfg).into_response()
 }
 
 /// POST /api/config → 保存配置到磁盘
 async fn post_config(Json(body): Json<config::AppConfig>) -> Response {
-    match config::save(&body) {
+    match config::save(&body).await {
         Ok(()) => (StatusCode::OK, Json(json!({ "ok": true }))).into_response(),
         Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, e).into_response(),
     }
@@ -755,7 +755,7 @@ async fn post_config(Json(body): Json<config::AppConfig>) -> Response {
 // ── OBS WebSocket API ─────────────────────────────────────────────────────
 
 async fn obs_status_handler(State(_state): State<AppState>) -> Response {
-    let cfg = config::load();
+    let cfg = config::load().await;
     let addr = cfg.obs_ws_addr.as_deref().unwrap_or("ws://localhost:4455");
     let pwd = cfg.obs_ws_password.as_deref();
     let status = obs_ws::status(addr, pwd).await;
@@ -763,7 +763,7 @@ async fn obs_status_handler(State(_state): State<AppState>) -> Response {
 }
 
 async fn obs_inject_handler(State(state): State<AppState>) -> Response {
-    let cfg = config::load();
+    let cfg = config::load().await;
     let addr = cfg.obs_ws_addr.as_deref().unwrap_or("ws://localhost:4455");
     let pwd = cfg.obs_ws_password.as_deref();
     let token_part = state
@@ -787,7 +787,7 @@ async fn obs_inject_handler(State(state): State<AppState>) -> Response {
 }
 
 async fn obs_remove_handler(State(_state): State<AppState>) -> Response {
-    let cfg = config::load();
+    let cfg = config::load().await;
     let addr = cfg.obs_ws_addr.as_deref().unwrap_or("ws://localhost:4455");
     let pwd = cfg.obs_ws_password.as_deref();
     match obs_ws::ObsWsClient::connect(addr, pwd).await {
