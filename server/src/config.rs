@@ -48,18 +48,30 @@ pub fn config_path() -> PathBuf {
 fn dirs_path() -> PathBuf {
     #[cfg(target_os = "macos")]
     {
-        let home = std::env::var("HOME").unwrap_or_else(|_| ".".to_string());
+        let home = std::env::var("HOME").unwrap_or_else(|_| {
+            log::warn!("HOME 环境变量未设置，配置将存储在当前目录");
+            ".".to_string()
+        });
         PathBuf::from(home).join("Library/Application Support/com.pulsecast.app")
     }
     #[cfg(target_os = "windows")]
     {
-        let appdata =
-            std::env::var("APPDATA").unwrap_or_else(|_| ".".to_string());
+        let appdata = std::env::var("APPDATA").unwrap_or_else(|_| {
+            log::warn!("APPDATA 环境变量未设置，配置将存储在当前目录");
+            ".".to_string()
+        });
         PathBuf::from(appdata).join("PulseCast")
     }
     #[cfg(target_os = "linux")]
     {
-        let home = std::env::var("HOME").unwrap_or_else(|_| ".".to_string());
+        // 优先使用 XDG_CONFIG_HOME，回退到 ~/.config
+        if let Ok(xdg) = std::env::var("XDG_CONFIG_HOME") {
+            return PathBuf::from(xdg).join("pulsecast");
+        }
+        let home = std::env::var("HOME").unwrap_or_else(|_| {
+            log::warn!("HOME 环境变量未设置，配置将存储在当前目录");
+            ".".to_string()
+        });
         PathBuf::from(home).join(".config/pulsecast")
     }
 }
@@ -91,6 +103,12 @@ pub async fn save(cfg: &AppConfig) -> Result<(), String> {
     tokio::fs::write(&tmp, &json)
         .await
         .map_err(|e| e.to_string())?;
+    // Unix: 设置文件权限 0o600（仅所有者可读写，保护 obs_ws_password）
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let _ = tokio::fs::set_permissions(&tmp, std::fs::Permissions::from_mode(0o600)).await;
+    }
     tokio::fs::rename(&tmp, &path)
         .await
         .map_err(|e| e.to_string())

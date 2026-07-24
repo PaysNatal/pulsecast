@@ -172,27 +172,36 @@ pub async fn run_hr(
         let mut notifs = periph.notifications().await?;
 
         // 持续接收心率通知，直到断开或切换设备
+        // 属性缓存：每 5 秒刷新一次 name/RSSI，避免每次通知都做 BLE 往返
+        let mut cached_name = String::from("心率设备");
+        let mut cached_rssi: Option<i16> = None;
+        let mut last_props_refresh = std::time::Instant::now() - std::time::Duration::from_secs(10);
+
         loop {
             tokio::select! {
                 n = notifs.next() => {
                     match n {
                         Some(n) if n.uuid == HR_MEASUREMENT => {
                             if let Some(bpm) = parse_hr(&n.value) {
-                                let props = periph.properties().await.ok().flatten();
-                                let name = props
-                                    .as_ref()
-                                    .and_then(|p| p.local_name.clone())
-                                    .unwrap_or_else(|| "心率设备".to_string());
-                                let rssi = props.and_then(|p| p.rssi);
+                                // 每 5 秒刷新一次属性
+                                if last_props_refresh.elapsed() > std::time::Duration::from_secs(5) {
+                                    if let Ok(Some(props)) = periph.properties().await {
+                                        if let Some(n) = &props.local_name {
+                                            cached_name = n.clone();
+                                        }
+                                        cached_rssi = props.rssi;
+                                    }
+                                    last_props_refresh = std::time::Instant::now();
+                                }
                                 // 断连预测：RSSI 持续低于 -80 时提前警告
-                                let msg = match rssi {
+                                let msg = match cached_rssi {
                                     Some(r) if r < -80 => "信号弱，请靠近设备".to_string(),
                                     _ => String::new(),
                                 };
                                 let frame = HrFrame {
                                     bpm,
                                     status: HrStatus::Live,
-                                    device: Some(DeviceInfo { name, battery: None, rssi }),
+                                    device: Some(DeviceInfo { name: cached_name.clone(), battery: None, rssi: cached_rssi }),
                                     message: msg,
                                     trigger: None,
                                     threshold: None,

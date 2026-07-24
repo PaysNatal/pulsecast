@@ -79,7 +79,7 @@
       }
       renderLive();
     };
-    ws.onclose = () => setStatus("device_lost", "与桌面服务断开");
+    ws.onclose = () => { state.liveSince = null; setStatus("device_lost", "与桌面服务断开"); };
     ws.onerror = () => setStatus("error", "无法连接 " + wsUrl());
   }
 
@@ -321,9 +321,9 @@
       const list = $("#highlights-list");
       list.innerHTML = "";
       events.slice(-5).reverse().forEach((ev) => {
-        const t = new Date(ev.at);
-        const ts = `${String(t.getHours()).padStart(2,"0")}:${String(t.getMinutes()).padStart(2,"0")}:${String(t.getSeconds()).padStart(2,"0")}`;
-        const dur = (ev.duration_ms / 1000).toFixed(1);
+        const t = new Date(ev.at || 0);
+        const ts = isNaN(t.getTime()) ? "--:--:--" : `${String(t.getHours()).padStart(2,"0")}:${String(t.getMinutes()).padStart(2,"0")}:${String(t.getSeconds()).padStart(2,"0")}`;
+        const dur = ((ev.duration_ms || 0) / 1000).toFixed(1);
         const el = document.createElement("div");
         el.style.cssText = "display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--surface-2);border:1px solid var(--border);border-radius:10px;";
         el.innerHTML = `<span style="font-size:20px;">🔥</span>

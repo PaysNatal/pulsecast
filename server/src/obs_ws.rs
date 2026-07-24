@@ -29,7 +29,7 @@ pub struct ObsWsClient {
 }
 
 /// OBS 连接状态（供 /api/obs/status 返回）
-#[derive(serde::Serialize)]
+#[derive(Clone, serde::Serialize)]
 pub struct ObsStatus {
     pub connected: bool,
     pub version: String,
@@ -171,7 +171,8 @@ impl ObsWsClient {
     pub async fn find_input(&mut self, name: &str) -> Result<bool> {
         let resp = self
             .request("GetInputList", json!({ "inputKind": "browser_source" }))
-            .await?;
+            .await
+            .context("获取 OBS 输入列表失败")?;
         if let Some(inputs) = resp["inputs"].as_array() {
             Ok(inputs.iter().any(|i| i["inputName"].as_str() == Some(name)))
         } else {
@@ -211,6 +212,7 @@ impl ObsWsClient {
             json!({
                 "inputName": SOURCE_NAME,
                 "inputSettings": { "url": url },
+                "overlay": true,
             }),
         )
         .await?;
@@ -311,25 +313,30 @@ pub async fn inject(
     }
 }
 
-/// 获取 OBS 状态
+/// 获取 OBS 状态（带 5 秒缓存，避免频繁建连）
 pub async fn status(addr: &str, password: Option<&str>) -> ObsStatus {
-    match ObsWsClient::connect(addr, password).await {
+    use std::sync::OnceLock;
+    use tokio::sync::Mutex as AsyncMutex;
+
+    static CACHE: OnceLock<AsyncMutex<(std::time::Instant, ObsStatus)>> = OnceLock::new();
+    let cache = CACHE.get_or_init(|| AsyncMutex::new((std::time::Instant::now() - std::time::Duration::from_secs(10), ObsStatus {
+        connected: false, version: String::new(), scene: String::new(), has_source: false,
+    })));
+
+    let mut guard = cache.lock().await;
+    if guard.0.elapsed() < std::time::Duration::from_secs(5) {
+        return guard.1.clone();
+    }
+
+    let result = match ObsWsClient::connect(addr, password).await {
         Ok(mut client) => {
             let version = client.get_version().await.unwrap_or_default();
             let scene = client.get_current_scene().await.unwrap_or_default();
             let has_source = client.find_input(SOURCE_NAME).await.unwrap_or(false);
-            ObsStatus {
-                connected: true,
-                version,
-                scene,
-                has_source,
-            }
+            ObsStatus { connected: true, version, scene, has_source }
         }
-        Err(_) => ObsStatus {
-            connected: false,
-            version: String::new(),
-            scene: String::new(),
-            has_source: false,
-        },
-    }
+        Err(_) => ObsStatus { connected: false, version: String::new(), scene: String::new(), has_source: false },
+    };
+    *guard = (std::time::Instant::now(), result.clone());
+    result
 }

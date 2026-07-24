@@ -293,7 +293,8 @@ static void hr_video_render(void *priv, gs_effect_t *effect)
         }
         /* 远程控制「高光闪烁」：800ms 窗口内整体放大 + 外发光脉冲 */
         if (d->flash_until && now < d->flash_until) {
-            float fphase = (float)((d->flash_until - now) % 400) / 400.0f;
+            float rem = (float)(d->flash_until - now);
+            float fphase = rem / 800.0f; /* 线性衰减 1→0 */
             scale *= 1.10f + 0.12f * fphase;
         }
         if (scale != 1.0f) {

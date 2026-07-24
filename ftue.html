@@ -492,7 +492,7 @@
 
     document.getElementById("copyBtn").onclick = function() {
       var url = document.getElementById("obsUrl").textContent;
-      if (navigator.clipboard) navigator.clipboard.writeText(url).then(showToast);
+      if (navigator.clipboard) navigator.clipboard.writeText(url).then(showToast).catch(function(){});
       else { var ta = document.createElement("textarea"); ta.value = url; document.body.appendChild(ta); ta.select(); document.execCommand("copy"); document.body.removeChild(ta); showToast(); }
     };
 

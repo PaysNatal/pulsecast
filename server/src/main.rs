@@ -50,12 +50,25 @@ struct Cli {
     /// WS 连接认证 token（不指定则不校验）
     #[arg(long)]
     token: Option<String>,
+
+    /// 启动时自动连接的 BLE 设备名
+    #[arg(long)]
+    device: Option<String>,
 }
 
 #[tokio::main]
 async fn main() {
     env_logger::init();
     let cli = Cli::parse();
+
+    // 阈值校验
+    if let (Some(h), Some(l)) = (cli.hr_high, cli.hr_low) {
+        if l >= h {
+            eprintln!("错误：--hr-low ({l}) 必须小于 --hr-high ({h})");
+            std::process::exit(1);
+        }
+    }
+
     run_server(pulsecast_server::Opts {
         webroot: PathBuf::from(cli.webroot),
         port: cli.port,
@@ -69,7 +82,7 @@ async fn main() {
             _ => None,
         },
         token: cli.token,
-        initial_device: None,
+        initial_device: cli.device,
     })
     .await;
 }

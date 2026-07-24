@@ -86,13 +86,24 @@ pc_ws_mgr_t *pc_ws_mgr_acquire(const char *host, int port,
     }
 
     /* 注册回调 */
-    if (g_mgr->cb_count < MAX_CALLBACKS) {
-        pthread_mutex_lock(&g_mgr->lock);
-        g_mgr->cbs[g_mgr->cb_count].cb = cb;
-        g_mgr->cbs[g_mgr->cb_count].user = user;
-        g_mgr->cb_count++;
-        pthread_mutex_unlock(&g_mgr->lock);
+    if (g_mgr->cb_count >= MAX_CALLBACKS) {
+        /* 回调槽已满：释放引用并返回 NULL */
+        g_mgr->refcount--;
+        if (g_mgr->refcount <= 0) {
+            if (g_mgr->ws) pc_ws_destroy(g_mgr->ws);
+            pthread_mutex_destroy(&g_mgr->lock);
+            free(g_mgr->host);
+            free(g_mgr);
+            g_mgr = NULL;
+        }
+        pthread_mutex_unlock(&g_mgr_lock);
+        return NULL;
     }
+    pthread_mutex_lock(&g_mgr->lock);
+    g_mgr->cbs[g_mgr->cb_count].cb = cb;
+    g_mgr->cbs[g_mgr->cb_count].user = user;
+    g_mgr->cb_count++;
+    pthread_mutex_unlock(&g_mgr->lock);
 
     g_mgr->refcount++;
     pc_ws_mgr_t *ret = g_mgr;

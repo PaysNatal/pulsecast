@@ -145,6 +145,8 @@ static void compute_offset(struct shake_data *d, float *dx, float *dy)
 static void shake_video_render(void *priv, gs_effect_t *effect)
 {
     struct shake_data *d = (struct shake_data *)priv;
+    if (!effect)
+        return;
     if (!obs_source_process_filter_begin(d->source, GS_RGBA,
                                          OBS_NO_DIRECT_RENDERING))
         return;

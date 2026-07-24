@@ -143,13 +143,15 @@ static void glow_destroy(void *priv)
 static void glow_update(void *priv, obs_data_t *settings)
 {
     struct glow_data *d = (struct glow_data *)priv;
-    d->base_strength = (float)obs_data_get_double(settings, "strength");
-    d->flash_strength = (float)obs_data_get_double(settings, "flash_strength");
+    float new_base = (float)obs_data_get_double(settings, "strength");
+    float new_flash = (float)obs_data_get_double(settings, "flash_strength");
     const char *nh = obs_data_get_string(settings, "host");
     int np = (int)obs_data_get_int(settings, "port");
     if (np <= 0)
         np = DEFAULT_PORT;
     pthread_mutex_lock(&d->lock);
+    d->base_strength = new_base > 0.0f ? new_base : 0.55f;
+    d->flash_strength = new_flash > 0.0f ? new_flash : 1.6f;
     int changed = (strcmp(nh ? nh : DEFAULT_HOST, d->host) != 0) || (np != d->port);
     char *local_host = NULL;
     int local_port = np;
