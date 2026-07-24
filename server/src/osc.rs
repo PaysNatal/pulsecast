@@ -62,7 +62,7 @@ fn encode_message(buf: &mut Vec<u8>, address: &str, args: &[OscArg]) {
 fn push_osc_string(buf: &mut Vec<u8>, s: &str) {
     buf.extend_from_slice(s.as_bytes());
     buf.push(0);
-    while buf.len() % 4 != 0 {
+    while !buf.len().is_multiple_of(4) {
         buf.push(0);
     }
 }

@@ -12,6 +12,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <math.h>
 
 #define DEFAULT_HOST "localhost"
 #define DEFAULT_PORT 4567

@@ -411,6 +411,7 @@
               }
             } catch(_) {}
           };
+          ws.onclose = function() { setTimeout(function() { connectWs(tok); }, 5000); };
         }
         if (window.__TAURI_INTERNALS__ && window.__TAURI_INTERNALS__.invoke) {
           window.__TAURI_INTERNALS__.invoke("get_ws_token").then(function(tok) { connectWs(tok); }).catch(function() { connectWs(tokenParam || ""); });

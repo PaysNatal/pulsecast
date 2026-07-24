@@ -138,7 +138,13 @@
     }
     ctx.stroke();
   }
-  function ecgLoop() { pushSample(); drawEcg(); requestAnimationFrame(ecgLoop); }
+  function ecgLoop() { pushSample(); drawEcg(); ecgRafId = requestAnimationFrame(ecgLoop); }
+  var ecgRafId = null;
+  function startEcg() { if (!ecgRafId) ecgRafId = requestAnimationFrame(ecgLoop); }
+  function stopEcg() { if (ecgRafId) { cancelAnimationFrame(ecgRafId); ecgRafId = null; } }
+  document.addEventListener("visibilitychange", function() {
+    if (document.hidden) stopEcg(); else startEcg();
+  });
   function getCss(v) { return getComputedStyle(document.documentElement).getPropertyValue(v).trim() || "#FF4D6D"; }
 
   /* ───────── 屏1：设备扫描（Web Bluetooth） ───────── */
@@ -302,7 +308,7 @@
   initSettingsUI();
   renderDevices(KNOWN);
   connect();
-  ecgLoop();
+  startEcg();
   // 首次进入先扫描（若支持 Web 蓝牙）
   setTimeout(scanBle, 400);
   // 断线自动重连

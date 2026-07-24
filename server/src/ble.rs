@@ -26,8 +26,8 @@ use tokio::sync::Mutex;
 use tokio::sync::watch;
 use uuid::Uuid;
 
-const HR_SERVICE: Uuid = Uuid::from_u128(0x0000_180D_0000_1000_8000_0080_5f9b_34fb);
-const HR_MEASUREMENT: Uuid = Uuid::from_u128(0x0000_2A37_0000_1000_8000_0080_5f9b_34fb);
+const HR_SERVICE: Uuid = Uuid::from_u128(0x0000_180d_0000_1000_8000_0080_5f9b_34fb);
+const HR_MEASUREMENT: Uuid = Uuid::from_u128(0x0000_2a37_0000_1000_8000_0080_5f9b_34fb);
 /// 扫描 / 重连等待上限；超时则提示未找到设备并重试
 const SCAN_TIMEOUT: Duration = Duration::from_secs(10);
 const RECONNECT_BACKOFF: Duration = Duration::from_secs(2);
@@ -120,21 +120,21 @@ pub async fn run_hr(
                         Some(CentralEvent::DeviceDiscovered(id)) => {
                             if let Ok(p) = central.peripheral(&id).await {
                                 if let Ok(Some(props)) = p.properties().await {
-                                    if advertises_hr(&props) {
-                                        if p.connect().await.is_ok() {
-                                            let _ = p.discover_services().await;
-                                            let chars = p.characteristics();
-                                            let has_hr = chars.iter().any(|c| c.uuid == HR_MEASUREMENT);
-                                            let matches = matcher.as_ref().map_or(true, |m| {
-                                                let n = props.local_name.as_deref().unwrap_or("");
-                                                n.contains(m.as_str()) || id.to_string().contains(m.as_str())
-                                            });
-                                            if has_hr && matches {
-                                                let ch = chars.into_iter().find(|c| c.uuid == HR_MEASUREMENT).unwrap();
-                                                target = Some((p, ch));
-                                            } else {
-                                                let _ = p.disconnect().await;
-                                            }
+                                    if advertises_hr(&props)
+                                        && p.connect().await.is_ok()
+                                    {
+                                        let _ = p.discover_services().await;
+                                        let chars = p.characteristics();
+                                        let has_hr = chars.iter().any(|c| c.uuid == HR_MEASUREMENT);
+                                        let matches = matcher.as_ref().is_none_or(|m| {
+                                            let n = props.local_name.as_deref().unwrap_or("");
+                                            n.contains(m.as_str()) || id.to_string().contains(m.as_str())
+                                        });
+                                        if has_hr && matches {
+                                            let ch = chars.into_iter().find(|c| c.uuid == HR_MEASUREMENT).unwrap();
+                                            target = Some((p, ch));
+                                        } else {
+                                            let _ = p.disconnect().await;
                                         }
                                     }
                                 }
@@ -194,7 +194,7 @@ pub async fn run_hr(
                     }
                 }
                 _ = matcher_rx.changed() => {
-                    // 目标设备变更 → 跳出到外层重新扫描
+                    let _ = periph.disconnect().await;
                     continue 'outer;
                 }
             }
@@ -216,9 +216,10 @@ pub async fn run_hr(
     }
 }
 
-/// 设备是否可能是心率源：广播 services 含心率服务，或（服务列表为空但有）有本地名称。
+/// 设备是否广播心率服务 0x180D。
+/// 仅匹配显式声明 HR Service 的设备，避免盲目连接手机/耳机等无关外设。
 fn advertises_hr(props: &btleplug::api::PeripheralProperties) -> bool {
-    props.services.contains(&HR_SERVICE) || props.local_name.is_some()
+    props.services.contains(&HR_SERVICE)
 }
 
 /// 解析 HR Measurement (0x2A37)。

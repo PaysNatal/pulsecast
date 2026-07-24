@@ -315,7 +315,7 @@
       ecgPhase = 0; // 重置 ECG 周期
     }
     if (STYLE === "ecg" && ctx) drawECG();
-    requestAnimationFrame(loop);
+    rafId = requestAnimationFrame(loop);
   }
 
   // ── ECG 绘制 ──
@@ -409,7 +409,13 @@
 
   // ── 启动 ──
   render();
-  requestAnimationFrame(loop);
+  var rafId = null;
+  function startLoop() { if (!rafId) rafId = requestAnimationFrame(loop); }
+  function stopLoop() { if (rafId) { cancelAnimationFrame(rafId); rafId = null; } }
+  document.addEventListener("visibilitychange", function() {
+    if (document.hidden) stopLoop(); else startLoop();
+  });
+  startLoop();
   connectWS();
 })();
 </script>

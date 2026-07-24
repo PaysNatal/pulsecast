@@ -733,15 +733,12 @@ async fn handle_socket(mut socket: axum::extract::ws::WebSocket, state: AppState
                 }
             }
             ctl = ctl_rx.recv() => {
-                match ctl {
-                    Ok(ev) => {
-                        if let Ok(text) = serde_json::to_string(&ev) {
-                            if socket.send(Message::Text(text.into())).await.is_err() {
-                                break;
-                            }
+                if let Ok(ev) = ctl {
+                    if let Ok(text) = serde_json::to_string(&ev) {
+                        if socket.send(Message::Text(text.into())).await.is_err() {
+                            break;
                         }
                     }
-                    Err(_) => {} // 落后（lagged），忽略
                 }
             }
             incoming = socket.recv() => {

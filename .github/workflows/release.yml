@@ -24,10 +24,13 @@ jobs:
           node-version: 20
 
       - name: Install dependencies
-        run: npm install --silent
+        run: npm ci --silent
+
+      - name: Install Tauri CLI
+        run: cargo install tauri-cli --version "^2"
 
       - name: Build Tauri app
-        run: npm run tauri build
+        run: cargo tauri build
 
       - name: Find DMG
         id: dmg
@@ -56,10 +59,13 @@ jobs:
           node-version: 20
 
       - name: Install dependencies
-        run: npm install --silent
+        run: npm ci --silent
+
+      - name: Install Tauri CLI
+        run: cargo install tauri-cli --version "^2"
 
       - name: Build Tauri app
-        run: npm run tauri build
+        run: cargo tauri build
 
       - name: Find installer
         id: exe

@@ -114,6 +114,8 @@ static void *glow_create(obs_data_t *settings, obs_source_t *source)
     d->flash_until = 0;
 
     d->effect = gs_effect_create(glow_effect_src, NULL, NULL);
+    if (!d->effect)
+        blog(LOG_ERROR, "[pulsecast-glow] 着色器编译失败，发光滤镜不可用");
     d->ws = pc_ws_connect(d->host, d->port, "/ws", on_frame, d);
     return d;
 }

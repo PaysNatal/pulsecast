@@ -405,8 +405,10 @@ static void *pc_worker(void *arg)
         }
     }
     free(frag);
-    pc_close(sock);
-    ws->sock = PC_INVALID_SOCKET;
+    if (ws->sock != PC_INVALID_SOCKET) {
+        pc_close(ws->sock);
+        ws->sock = PC_INVALID_SOCKET;
+    }
     return NULL;
 }
 
