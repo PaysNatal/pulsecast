@@ -23,6 +23,11 @@ clap = { version = "4", features = ["derive"] }
 log = "0.4"
 env_logger = "0.11"
 
+# OBS WebSocket v5 客户端（一键注入浏览器源）
+tokio-tungstenite = "0.26"
+sha2 = "0.10"
+base64 = "0.22"
+
 # 真实 BLE 心率读取（标准 HR Profile 0x180D / 0x2A37）。
 # 默认不编译以加速开发验证；启用：cargo run -p pulsecast-server --features ble
 btleplug = { version = "0.12", optional = true }

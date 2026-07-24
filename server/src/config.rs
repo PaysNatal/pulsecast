@@ -26,6 +26,15 @@ pub struct AppConfig {
     pub vrchat: Option<bool>,
     #[serde(default)]
     pub chatbox: Option<bool>,
+    /// OBS WebSocket 地址（默认 ws://localhost:4455）
+    #[serde(default)]
+    pub obs_ws_addr: Option<String>,
+    /// OBS WebSocket 密码（OBS → 工具 → WebSocket 服务器设置）
+    #[serde(default)]
+    pub obs_ws_password: Option<String>,
+    /// 直播间地址（预留，v1.x 弹幕/礼物联动用）
+    #[serde(default)]
+    pub live_room_url: Option<String>,
 }
 
 pub fn config_path() -> PathBuf {

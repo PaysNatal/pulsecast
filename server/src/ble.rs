@@ -184,6 +184,8 @@ pub async fn run_hr(
                                     message: String::new(),
                                     trigger: None,
                                     threshold: None,
+                                    intensity: 0.0,
+                                    external_events: Vec::new(),
                                 };
                                 *current.lock().await = frame.clone();
                                 let _ = tx.send(frame);
@@ -209,6 +211,8 @@ pub async fn run_hr(
             message: "设备已断开，重连中…".to_string(),
             trigger: None,
             threshold: None,
+            intensity: 0.0,
+            external_events: Vec::new(),
         };
         *current.lock().await = lost.clone();
         let _ = tx.send(lost);

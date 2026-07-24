@@ -15,7 +15,7 @@ use std::time::Duration;
 use axum::extract::{Json, State, WebSocketUpgrade};
 use axum::http::{header, HeaderValue, StatusCode};
 use axum::response::{IntoResponse, Response};
-use axum::routing::get;
+use axum::routing::{get, post};
 use axum::Router;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -31,6 +31,15 @@ pub mod osc;
 
 // 设置持久化（JSON 配置文件读写）
 pub mod config;
+
+// OBS WebSocket v5 客户端（一键注入浏览器源）
+pub mod obs_ws;
+
+// 设备 Profile（小米/华为/Amazfit/Polar 适配引导）
+pub mod device_profiles;
+
+// 名场面系统（心率峰值自动标记 + OBS Replay Buffer 联动）
+pub mod highlights;
 
 // ── 数据模型（与 dev-server.mjs / obs-overlay.html 契约一致） ───────────────
 
@@ -66,6 +75,29 @@ pub struct HrFrame {
     /// 阈值配置回声（OBS 叠层据此绘制参考线；未配置阈值为 None）
     #[serde(skip_serializing_if = "Option::is_none")]
     pub threshold: Option<ThresholdCfg>,
+    /// 心率强度 0.0~1.0（基于静息/最大心率归一化，驱动氛围引擎梯度效果）
+    #[serde(default)]
+    pub intensity: f32,
+    /// 外部事件（直播间弹幕/礼物等，当前预留，v1.x 接入）
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub external_events: Vec<ExternalEvent>,
+}
+
+/// 外部事件源（预留弹幕/礼物联动接口）
+#[derive(Clone, Serialize)]
+#[serde(tag = "source")]
+pub enum ExternalEvent {
+    /// VRChat OSC 参数
+    Osc { param: String, value: f32 },
+    /// 直播间事件（B 站弹幕 / 抖音礼物 / SC，v1.x 实现）
+    LiveRoom {
+        platform: String,
+        kind: String,
+        user: String,
+        content: String,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        value: Option<f64>,
+    },
 }
 
 /// 阈值配置：bpm 高于 high → High 动作；低于 low → Low 动作；介于之间 → Normal
@@ -132,6 +164,8 @@ impl HrFrame {
             message: "正在连接设备…".to_string(),
             trigger: None,
             threshold: None,
+            intensity: 0.0,
+            external_events: Vec::new(),
         }
     }
     fn live(bpm: u32, device: DeviceInfo) -> Self {
@@ -142,6 +176,8 @@ impl HrFrame {
             message: String::new(),
             trigger: None,
             threshold: None,
+            intensity: 0.0,
+            external_events: Vec::new(),
         }
     }
 }
@@ -171,20 +207,26 @@ fn evaluate(bpm: u32, th: &ThresholdCfg) -> Zone {
     }
 }
 
-/// 给裸帧注入 threshold 配置回声；若分区相对上一次发生变化则注入 trigger。
+/// 给裸帧注入 threshold 配置回声 + intensity 梯度；若分区变化则注入 trigger。
 async fn annotate(
     frame: HrFrame,
     threshold: &Option<ThresholdCfg>,
     last_zone: &Arc<Mutex<Option<Zone>>>,
 ) -> HrFrame {
     let mut frame = frame;
+
+    // 心率强度归一化：(bpm - 60) / (200 - 60)，clamp [0, 1]
+    // 60 = 默认静息心率，200 = 默认最大心率（后续可配置化）
+    if frame.bpm > 0 {
+        frame.intensity = ((frame.bpm as f32 - 60.0) / 140.0).clamp(0.0, 1.0);
+    }
+
     if let Some(th) = threshold {
         frame.threshold = Some(*th);
         let zone = evaluate(frame.bpm, th);
         let mut last = last_zone.lock().await;
         let prev = *last;
         if prev != Some(zone) {
-            // 仅当已有上次分区（非启动首帧）才广播动作，避免连接即发 Normal
             if prev.is_some() {
                 frame.trigger = Some(match zone {
                     Zone::High => TriggerKind::High,
@@ -236,6 +278,8 @@ struct AppState {
     controller: SourceController,
     /// WS 认证 token（None 表示不校验，兼容独立运行模式）
     token: Option<String>,
+    /// 名场面引擎（ring buffer + 峰值检测）
+    highlights: Arc<Mutex<highlights::HighlightsEngine>>,
 }
 
 impl AppState {
@@ -534,6 +578,7 @@ pub async fn run_server(opts: Opts) {
         threshold: threshold.clone(),
         controller: controller.clone(),
         token: opts.token.clone(),
+        highlights: Arc::new(Mutex::new(highlights::HighlightsEngine::new())),
     };
 
     // 阈值转换任务：订阅裸帧 → 注入 threshold/trigger → 对外广播
@@ -544,10 +589,22 @@ pub async fn run_server(opts: Opts) {
         let out_current = current.clone();
         let lz = last_zone.clone();
         let thr = threshold.clone();
+        let hl = state.highlights.clone();
         tokio::spawn(async move {
             while let Ok(f) = inner_rx.recv().await {
                 let th = *thr.lock().await;
                 let annotated = annotate(f, &th, &lz).await;
+                // 喂给名场面引擎
+                if annotated.bpm > 0 {
+                    hl.lock().await.push(highlights::TimestampedFrame {
+                        at: std::time::SystemTime::now()
+                            .duration_since(std::time::UNIX_EPOCH)
+                            .map(|d| d.as_millis() as u64)
+                            .unwrap_or(0),
+                        bpm: annotated.bpm,
+                        intensity: annotated.intensity,
+                    });
+                }
                 *out_current.lock().await = annotated.clone();
                 let _ = out_tx.send(annotated);
             }
@@ -570,7 +627,12 @@ pub async fn run_server(opts: Opts) {
             .route("/obs", get(obs_handler))
             .route("/design-tokens.css", get(css_handler))
             .route("/api/source", get(get_source).post(post_source))
-            .route("/api/config", get(get_config).post(post_config));
+            .route("/api/config", get(get_config).post(post_config))
+            .route("/api/obs/status", get(obs_status_handler))
+            .route("/api/obs/inject", post(obs_inject_handler))
+            .route("/api/obs/remove", post(obs_remove_handler))
+            .route("/api/highlights", get(highlights_handler))
+            .route("/api/ble/profiles", get(ble_profiles_handler));
         #[cfg(feature = "ble")]
         {
             r = r.route("/api/ble/scan", get(scan_handler));
@@ -686,6 +748,74 @@ async fn post_config(Json(body): Json<config::AppConfig>) -> Response {
         Ok(()) => (StatusCode::OK, Json(json!({ "ok": true }))).into_response(),
         Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, e).into_response(),
     }
+}
+
+// ── OBS WebSocket API ─────────────────────────────────────────────────────
+
+async fn obs_status_handler(State(_state): State<AppState>) -> Response {
+    let cfg = config::load();
+    let addr = cfg.obs_ws_addr.as_deref().unwrap_or("ws://localhost:4455");
+    let pwd = cfg.obs_ws_password.as_deref();
+    let status = obs_ws::status(addr, pwd).await;
+    Json(status).into_response()
+}
+
+async fn obs_inject_handler(State(state): State<AppState>) -> Response {
+    let cfg = config::load();
+    let addr = cfg.obs_ws_addr.as_deref().unwrap_or("ws://localhost:4455");
+    let pwd = cfg.obs_ws_password.as_deref();
+    let token_part = state
+        .token
+        .as_ref()
+        .map(|t| format!("&token={t}"))
+        .unwrap_or_default();
+    let url = format!(
+        "http://localhost:{}/obs?style=pill{}",
+        cfg.port.unwrap_or(4567),
+        token_part
+    );
+    match obs_ws::inject(addr, pwd, &url).await {
+        Ok(result) => Json(result).into_response(),
+        Err(e) => (
+            StatusCode::BAD_GATEWAY,
+            Json(json!({ "ok": false, "message": format!("{e:#}") })),
+        )
+            .into_response(),
+    }
+}
+
+async fn obs_remove_handler(State(_state): State<AppState>) -> Response {
+    let cfg = config::load();
+    let addr = cfg.obs_ws_addr.as_deref().unwrap_or("ws://localhost:4455");
+    let pwd = cfg.obs_ws_password.as_deref();
+    match obs_ws::ObsWsClient::connect(addr, pwd).await {
+        Ok(mut client) => match client.remove_input().await {
+            Ok(()) => Json(json!({ "ok": true, "message": "已删除 OBS 心率源" })).into_response(),
+            Err(e) => (
+                StatusCode::BAD_GATEWAY,
+                Json(json!({ "ok": false, "message": format!("{e:#}") })),
+            )
+                .into_response(),
+        },
+        Err(e) => (
+            StatusCode::BAD_GATEWAY,
+            Json(json!({ "ok": false, "message": format!("连接 OBS 失败: {e:#}") })),
+        )
+            .into_response(),
+    }
+}
+
+// ── 名场面 API ────────────────────────────────────────────────────────────
+
+async fn highlights_handler(State(state): State<AppState>) -> Response {
+    let engine = state.highlights.lock().await;
+    Json(engine.events()).into_response()
+}
+
+// ── 设备 Profile API ──────────────────────────────────────────────────────
+
+async fn ble_profiles_handler() -> Response {
+    Json(device_profiles::all_profiles()).into_response()
 }
 
 async fn serve_file(state: &AppState, name: &str) -> Response {
@@ -869,6 +999,8 @@ mod tests {
             message: String::new(),
             trigger: None,
             threshold: None,
+            intensity: 0.0,
+            external_events: Vec::new(),
         };
         // 72 → Normal，无 trigger，但带 threshold 回声
         let f1 = annotate(bare(72), &Some(th), &lz).await;
