@@ -200,7 +200,7 @@
       const on = el.getAttribute("aria-checked") !== "true";
       el.setAttribute("aria-checked", String(on));
       localStorage.setItem(key, String(on));
-      state[key.replace("pc_", "")] = on;
+      state[key.replace("pc_", "") === "alert" ? "alertOn" : key.replace("pc_", "")] = on;
       if (onSync) onSync(on);
     });
   }
@@ -264,7 +264,7 @@
   function sendCommand(kind, payload) {
     if (!state.ws || state.ws.readyState !== 1) { flashToast("未连接桌面端"); return; }
     const msg = Object.assign({ kind }, payload || {});
-    state.ws.send(JSON.stringify(msg));
+    try { state.ws.send(JSON.stringify(msg)); } catch (_) { flashToast("发送失败"); }
   }
   // 场景切换 chips
   $$(".scene-chip").forEach((b) =>

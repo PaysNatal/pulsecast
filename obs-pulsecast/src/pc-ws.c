@@ -472,6 +472,8 @@ void pc_ws_destroy(pc_ws_t *ws)
 
 float pc_ws_parse_intensity(const char *json)
 {
+    if (!json)
+        return -1.0f;
     const char *p = strstr(json, "\"intensity\"");
     if (!p)
         return -1.0f;

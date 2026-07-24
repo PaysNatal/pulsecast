@@ -155,7 +155,10 @@ pub fn spawn(tx: &broadcast::Sender<HrFrame>, osc_addr: String, chatbox: bool) {
                         let _ = sock.send_to(&buf, &target).await;
                     }
                 }
-                Err(broadcast::error::RecvError::Lagged(_)) => continue,
+                Err(broadcast::error::RecvError::Lagged(n)) => {
+                    log::warn!("OSC 转发落后 {n} 帧，跳过");
+                    continue;
+                }
                 Err(broadcast::error::RecvError::Closed) => break,
             }
         }

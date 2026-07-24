@@ -664,7 +664,7 @@ pub async fn run_server(opts: Opts) {
             .route("/api/obs/status", get(obs_status_handler))
             .route("/api/obs/inject", post(obs_inject_handler))
             .route("/api/obs/remove", post(obs_remove_handler))
-            .route("/api/highlights", get(highlights_handler))
+            .route("/api/highlights", get(highlights_handler).delete(highlights_clear_handler))
             .route("/api/highlights/card/{index}", get(highlights_card_handler))
             .route("/api/ble/profiles", get(ble_profiles_handler));
         #[cfg(feature = "ble")]
@@ -873,6 +873,11 @@ async fn highlights_card_handler(
     }
 }
 
+async fn highlights_clear_handler(State(state): State<AppState>) -> Response {
+    state.highlights.lock().await.clear();
+    Json(json!({ "ok": true })).into_response()
+}
+
 // ── 设备 Profile API ──────────────────────────────────────────────────────
 
 async fn ble_profiles_handler() -> Response {
@@ -994,7 +999,8 @@ async fn handle_command(raw: &str, thr: &Arc<Mutex<Option<ThresholdCfg>>>) -> Op
         ControlKind::SetThreshold => {
             let high = cmd.high?;
             let low = cmd.low?;
-            if low >= high {
+            // 生理范围校验：20 ≤ low < high ≤ 250
+            if low >= high || low < 20 || high > 250 {
                 return None;
             }
             // 运行时更新阈值（异步锁，避免阻塞事件循环）

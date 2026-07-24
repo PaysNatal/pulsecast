@@ -43,8 +43,6 @@ pub struct HighlightsEngine {
     highlights: Vec<HighlightEvent>,
     /// 上一次检测到的"高能状态"起始时间（用于计算持续时间）
     spike_start: Option<u64>,
-    /// 上一次检测到的"高能状态"起始 BPM（用于计算上升时间）
-    spike_start_bpm: u32,
     /// 高能阈值（intensity > 此值视为高能）
     spike_threshold: f32,
 }
@@ -61,41 +59,39 @@ impl HighlightsEngine {
             ring: VecDeque::with_capacity(1800),
             highlights: Vec::new(),
             spike_start: None,
-            spike_start_bpm: 0,
             spike_threshold: 0.7, // intensity > 0.7 ≈ BPM > 158
         }
     }
 
     /// 推入一帧心率数据，自动检测名场面
     pub fn push(&mut self, frame: TimestampedFrame) {
+        let at = frame.at;
+        let bpm = frame.bpm;
+        let intensity = frame.intensity;
+
         // 维护 ring buffer 大小（最多 30 分钟）
         if self.ring.len() >= 1800 {
             self.ring.pop_front();
         }
-        self.ring.push_back(frame.clone());
+        self.ring.push_back(frame);
 
         // 检测高能状态跨越
-        let is_spike = frame.intensity > self.spike_threshold;
+        let is_spike = intensity > self.spike_threshold;
         match (self.spike_start, is_spike) {
             (None, true) => {
-                // 进入高能状态
-                self.spike_start = Some(frame.at);
-                self.spike_start_bpm = frame.bpm;
+                self.spike_start = Some(at);
             }
             (Some(start), false) => {
-                // 离开高能状态 → 记录名场面
-                let duration = frame.at.saturating_sub(start);
-                // 只记录持续超过 2 秒的名场面（过滤噪声）
+                let duration = at.saturating_sub(start);
                 if duration > 2000 {
-                    // 找峰值及其时刻
                     let peak_frame = self
                         .ring
                         .iter()
-                        .filter(|f| f.at >= start && f.at <= frame.at)
+                        .filter(|f| f.at >= start && f.at <= at)
                         .max_by_key(|f| f.bpm);
                     let (peak, peak_at) = match peak_frame {
                         Some(pf) => (pf.bpm, pf.at),
-                        None => (frame.bpm, frame.at),
+                        None => (bpm, at),
                     };
 
                     self.highlights.push(HighlightEvent {
@@ -108,7 +104,6 @@ impl HighlightsEngine {
                     });
                 }
                 self.spike_start = None;
-                self.spike_start_bpm = 0;
             }
             _ => {}
         }
@@ -137,6 +132,13 @@ impl HighlightsEngine {
     /// 获取所有名场面事件
     pub fn events(&self) -> &[HighlightEvent] {
         &self.highlights
+    }
+
+    /// 清空所有名场面事件（新场次开始时调用）
+    pub fn clear(&mut self) {
+        self.highlights.clear();
+        self.ring.clear();
+        self.spike_start = None;
     }
 
     /// 标记最近一个名场面已触发 Replay Buffer
