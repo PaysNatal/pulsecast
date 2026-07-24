@@ -593,12 +593,14 @@ pub async fn run_server(opts: Opts) {
         let thr = threshold.clone();
         let hl = state.highlights.clone();
         tokio::spawn(async move {
+            let mut prev_hl_count: usize = 0;
             while let Ok(f) = inner_rx.recv().await {
                 let th = *thr.lock().await;
                 let annotated = annotate(f, &th, &lz).await;
                 // 喂给名场面引擎
                 if annotated.bpm > 0 {
-                    hl.lock().await.push(highlights::TimestampedFrame {
+                    let mut engine = hl.lock().await;
+                    engine.push(highlights::TimestampedFrame {
                         at: std::time::SystemTime::now()
                             .duration_since(std::time::UNIX_EPOCH)
                             .map(|d| d.as_millis() as u64)
@@ -606,6 +608,24 @@ pub async fn run_server(opts: Opts) {
                         bpm: annotated.bpm,
                         intensity: annotated.intensity,
                     });
+                    // 检测新名场面 → 触发 OBS Replay Buffer
+                    if engine.last_event_is_new(prev_hl_count) {
+                        engine.mark_replay_saved();
+                        prev_hl_count = engine.events().len();
+                        drop(engine);
+                        // 异步触发 OBS Replay Buffer（不阻塞心率广播）
+                        tokio::spawn(async {
+                            let cfg = config::load().await;
+                            let addr = cfg.obs_ws_addr.as_deref().unwrap_or("ws://localhost:4455");
+                            let pwd = cfg.obs_ws_password.as_deref();
+                            if let Ok(mut client) = obs_ws::ObsWsClient::connect(addr, pwd).await {
+                                let _ = client.trigger_replay_buffer().await;
+                                log::info!("[pulsecast] 名场面触发 OBS Replay Buffer 保存");
+                            }
+                        });
+                    } else {
+                        prev_hl_count = engine.events().len();
+                    }
                 }
                 *out_current.lock().await = annotated.clone();
                 let _ = out_tx.send(annotated);
@@ -634,6 +654,7 @@ pub async fn run_server(opts: Opts) {
             .route("/api/obs/inject", post(obs_inject_handler))
             .route("/api/obs/remove", post(obs_remove_handler))
             .route("/api/highlights", get(highlights_handler))
+            .route("/api/highlights/card/{index}", get(highlights_card_handler))
             .route("/api/ble/profiles", get(ble_profiles_handler));
         #[cfg(feature = "ble")]
         {
@@ -812,6 +833,22 @@ async fn obs_remove_handler(State(_state): State<AppState>) -> Response {
 async fn highlights_handler(State(state): State<AppState>) -> Response {
     let engine = state.highlights.lock().await;
     Json(engine.events()).into_response()
+}
+
+async fn highlights_card_handler(
+    State(state): State<AppState>,
+    axum::extract::Path(index): axum::extract::Path<usize>,
+) -> Response {
+    let engine = state.highlights.lock().await;
+    match engine.export_card_svg(index) {
+        Some(svg) => (
+            StatusCode::OK,
+            [(header::CONTENT_TYPE, "image/svg+xml; charset=utf-8")],
+            svg,
+        )
+            .into_response(),
+        None => (StatusCode::NOT_FOUND, "名场面不存在或数据不足").into_response(),
+    }
 }
 
 // ── 设备 Profile API ──────────────────────────────────────────────────────

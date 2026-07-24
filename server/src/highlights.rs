@@ -145,4 +145,81 @@ impl HighlightsEngine {
     pub fn export_json(&self) -> String {
         serde_json::to_string_pretty(&self.highlights).unwrap_or_else(|_| "[]".to_string())
     }
+
+    /// 检查最近一次 push 是否产生了新的名场面（用于触发 Replay Buffer）
+    pub fn last_event_is_new(&self, prev_count: usize) -> bool {
+        self.highlights.len() > prev_count
+    }
+
+    /// 生成名场面 SVG 卡片（心率曲线 + 峰值 + 品牌）
+    pub fn export_card_svg(&self, index: usize) -> Option<String> {
+        let event = self.highlights.get(index)?;
+
+        // 提取 spike 前后 30 秒的心率数据
+        let window_start = event.at.saturating_sub(15_000);
+        let window_end = event.at + event.duration_ms + 15_000;
+        let frames: Vec<&TimestampedFrame> = self
+            .ring
+            .iter()
+            .filter(|f| f.at >= window_start && f.at <= window_end)
+            .collect();
+
+        if frames.len() < 2 {
+            return None;
+        }
+
+        // SVG 尺寸
+        let w = 600.0_f32;
+        let h = 300.0_f32;
+        let pad = 40.0_f32;
+        let plot_w = w - pad * 2.0;
+        let plot_h = h - pad * 2.0 - 30.0; // 底部留空给标签
+
+        // 归一化坐标
+        let t_min = frames[0].at as f32;
+        let t_max = frames[frames.len() - 1].at as f32;
+        let t_range = (t_max - t_min).max(1.0);
+        let bpm_min = 40.0_f32;
+        let bpm_max = (event.peak_bpm as f32 + 20.0).max(120.0);
+        let bpm_range = bpm_max - bpm_min;
+
+        let points: Vec<String> = frames
+            .iter()
+            .map(|f| {
+                let x = pad + (f.at as f32 - t_min) / t_range * plot_w;
+                let y = pad + plot_h - ((f.bpm as f32 - bpm_min) / bpm_range * plot_h).clamp(0.0, plot_h);
+                format!("{:.1},{:.1}", x, y)
+            })
+            .collect();
+
+        // 峰值标记位置
+        let peak_x = pad + (event.at as f32 - t_min) / t_range * plot_w;
+        let peak_y = pad + plot_h - ((event.peak_bpm as f32 - bpm_min) / bpm_range * plot_h).clamp(0.0, plot_h);
+
+        let ts = {
+            let secs = event.at / 1000;
+            let h = (secs / 3600) % 24;
+            let m = (secs / 60) % 60;
+            let s = secs % 60;
+            format!("{:02}:{:02}:{:02}", h, m, s)
+        };
+        let dur = event.duration_ms as f32 / 1000.0;
+
+        Some(format!(
+            r##"<svg xmlns="http://www.w3.org/2000/svg" width="{w}" height="{h}" viewBox="0 0 {w} {h}">
+  <rect width="{w}" height="{h}" rx="16" fill="#0E1116"/>
+  <text x="{pad}" y="28" font-family="system-ui,sans-serif" font-size="14" fill="#8B929A">怦然 PulseCast · 名场面</text>
+  <polyline points="{points}" fill="none" stroke="#FF4D6D" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
+  <circle cx="{peak_x:.1}" cy="{peak_y:.1}" r="5" fill="#FF4D6D"/>
+  <text x="{peak_x:.1}" y="{peak_y:.1}" dy="-12" text-anchor="middle" font-family="system-ui,sans-serif" font-size="18" font-weight="700" fill="#FF4D6D">{peak} BPM</text>
+  <text x="{pad}" y="{h:.0}" dy="-10" font-family="system-ui,sans-serif" font-size="12" fill="#8B929A">{ts} · 持续 {dur:.1}s</text>
+  <text x="{w:.0}" y="{h:.0}" dy="-10" dx="-{pad}" text-anchor="end" font-family="system-ui,sans-serif" font-size="11" fill="#555">♥ PulseCast</text>
+</svg>"##,
+            w = w, h = h, pad = pad,
+            points = points.join(" "),
+            peak_x = peak_x, peak_y = peak_y,
+            peak = event.peak_bpm,
+            ts = ts, dur = dur,
+        ))
+    }
 }
