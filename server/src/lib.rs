@@ -676,7 +676,8 @@ pub async fn run_server(opts: Opts) {
             .with_state(state.clone())
     };
 
-    let addr = SocketAddr::from((Ipv4Addr::LOCALHOST, opts.port));
+    // 绑定 0.0.0.0 使同局域网手机可访问（遥控器/移动端）
+    let addr = SocketAddr::from((Ipv4Addr::UNSPECIFIED, opts.port));
     let listener = match tokio::net::TcpListener::bind(addr).await {
         Ok(l) => l,
         Err(e) => {
@@ -908,6 +909,10 @@ async fn handle_socket(mut socket: axum::extract::ws::WebSocket, state: AppState
         let _ = socket.send(Message::Text(initial.into())).await;
     }
 
+    // 30s 心跳 ping，防止 NAT/防火墙静默断开空闲连接
+    let mut ping_interval = tokio::time::interval(Duration::from_secs(30));
+    ping_interval.tick().await; // 消费第一次立即触发
+
     loop {
         tokio::select! {
             frame = rx.recv() => {
@@ -919,7 +924,7 @@ async fn handle_socket(mut socket: axum::extract::ws::WebSocket, state: AppState
                             }
                         }
                     }
-                    Err(_) => break, // 发送端已关闭
+                    Err(_) => break,
                 }
             }
             ctl = ctl_rx.recv() => {
@@ -931,14 +936,23 @@ async fn handle_socket(mut socket: axum::extract::ws::WebSocket, state: AppState
                     }
                 }
             }
+            _ = ping_interval.tick() => {
+                if socket.send(Message::Ping(vec![].into())).await.is_err() {
+                    break;
+                }
+            }
             incoming = socket.recv() => {
                 match incoming {
                     Some(Ok(Message::Close(_))) | None => break,
-                    Some(Err(_)) => break, // 连接错误，退出
-                    // 客户端文本：解析为远程控制命令（移动端 → 服务端）
+                    Some(Err(_)) => break,
                     Some(Ok(Message::Text(t))) => {
-                        if let Some(ev) = handle_command(&t, &state.threshold).await {
-                            let _ = state.ctl_tx.send(ev);
+                        match handle_command(&t, &state.threshold).await {
+                            Some(ev) => { let _ = state.ctl_tx.send(ev); }
+                            None => {
+                                // 反馈错误给发送方，而非静默忽略
+                                let err = r#"{"type":"error","message":"无效命令"}"#;
+                                let _ = socket.send(Message::Text(err.into())).await;
+                            }
                         }
                     }
                     _ => {}

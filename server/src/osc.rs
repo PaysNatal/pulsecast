@@ -103,6 +103,12 @@ pub fn spawn(tx: &broadcast::Sender<HrFrame>, osc_addr: String, chatbox: bool) {
             match rx.recv().await {
                 Ok(frame) => {
                     let connected = matches!(frame.status, HrStatus::Live);
+                    send_param(&sock, &target, "isHRConnected", OscArg::Bool(connected)).await;
+
+                    // 非 Live 状态不发送数值参数，避免 VRChat 显示 0 BPM
+                    if !connected {
+                        continue;
+                    }
                     let bpm = frame.bpm.min(255) as i32;
 
                     send_param(&sock, &target, "HeartRate", OscArg::Int(bpm)).await;

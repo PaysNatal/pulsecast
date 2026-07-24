@@ -50,10 +50,9 @@ pub fn all_profiles() -> Vec<DeviceProfile> {
         },
         DeviceProfile {
             name_patterns: vec![
-                "HUAWEI".into(),
+                "HUAWEI WATCH".into(),
+                "HUAWEI GT".into(),
                 "Honor Band".into(),
-                "GT-".into(),
-                "WATCH".into(),
             ],
             display_name: "华为手环/手表".into(),
             expected_interval_ms: 1000,
@@ -113,9 +112,10 @@ pub fn all_profiles() -> Vec<DeviceProfile> {
     ]
 }
 
-/// 根据 BLE 广播名匹配设备 Profile
+/// 根据 BLE 广播名匹配设备 Profile（大小写不敏感）
 pub fn match_profile(ble_name: &str) -> Option<DeviceProfile> {
+    let lower = ble_name.to_lowercase();
     all_profiles()
         .into_iter()
-        .find(|p| p.name_patterns.iter().any(|pat| ble_name.contains(pat.as_str())))
+        .find(|p| p.name_patterns.iter().any(|pat| lower.contains(&pat.to_lowercase())))
 }

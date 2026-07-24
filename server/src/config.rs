@@ -67,7 +67,13 @@ fn dirs_path() -> PathBuf {
 pub async fn load() -> AppConfig {
     let path = config_path();
     match tokio::fs::read_to_string(&path).await {
-        Ok(s) => serde_json::from_str(&s).unwrap_or_default(),
+        Ok(s) => match serde_json::from_str(&s) {
+            Ok(cfg) => cfg,
+            Err(e) => {
+                log::warn!("配置文件解析失败，使用默认值: {e}");
+                AppConfig::default()
+            }
+        },
         Err(_) => AppConfig::default(),
     }
 }

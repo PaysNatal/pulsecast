@@ -25,6 +25,8 @@ pub struct HighlightEvent {
     pub at: u64,
     /// 峰值 BPM
     pub peak_bpm: u32,
+    /// 峰值时刻 Unix 毫秒（用于 SVG 卡片定位）
+    pub peak_at: u64,
     /// 从正常到峰值的上升时间（毫秒）
     pub rise_ms: u64,
     /// 高于阈值的持续时间（毫秒）
@@ -85,21 +87,24 @@ impl HighlightsEngine {
                 let duration = frame.at.saturating_sub(start);
                 // 只记录持续超过 2 秒的名场面（过滤噪声）
                 if duration > 2000 {
-                    // 找峰值
-                    let peak = self
+                    // 找峰值及其时刻
+                    let peak_frame = self
                         .ring
                         .iter()
                         .filter(|f| f.at >= start && f.at <= frame.at)
-                        .map(|f| f.bpm)
-                        .max()
-                        .unwrap_or(frame.bpm);
+                        .max_by_key(|f| f.bpm);
+                    let (peak, peak_at) = match peak_frame {
+                        Some(pf) => (pf.bpm, pf.at),
+                        None => (frame.bpm, frame.at),
+                    };
 
                     self.highlights.push(HighlightEvent {
                         at: start,
                         peak_bpm: peak,
+                        peak_at,
                         rise_ms: self.estimate_rise_ms(start),
                         duration_ms: duration,
-                        replay_saved: false, // OBS Replay Buffer 触发后由外部设置
+                        replay_saved: false,
                     });
                 }
                 self.spike_start = None;
@@ -110,6 +115,7 @@ impl HighlightsEngine {
     }
 
     /// 估算上升时间：从 ring buffer 中找高能开始前 10 秒内的最低 BPM 到峰值的时间差
+    /// 仅考虑 spike_at 之前的帧，确保 min 在 max 之前
     fn estimate_rise_ms(&self, spike_at: u64) -> u64 {
         let window_start = spike_at.saturating_sub(10_000);
         let pre_frames: Vec<&TimestampedFrame> = self
@@ -120,11 +126,10 @@ impl HighlightsEngine {
         if pre_frames.len() < 2 {
             return 0;
         }
-        // 找最低点到最高点的时间跨度
         let min_frame = pre_frames.iter().min_by_key(|f| f.bpm);
         let max_frame = pre_frames.iter().max_by_key(|f| f.bpm);
         match (min_frame, max_frame) {
-            (Some(lo), Some(hi)) => hi.at.saturating_sub(lo.at),
+            (Some(lo), Some(hi)) if lo.at <= hi.at => hi.at.saturating_sub(lo.at),
             _ => 0,
         }
     }
@@ -157,7 +162,7 @@ impl HighlightsEngine {
 
         // 提取 spike 前后 30 秒的心率数据
         let window_start = event.at.saturating_sub(15_000);
-        let window_end = event.at + event.duration_ms + 15_000;
+        let window_end = event.at.saturating_add(event.duration_ms).saturating_add(15_000);
         let frames: Vec<&TimestampedFrame> = self
             .ring
             .iter()
@@ -192,8 +197,8 @@ impl HighlightsEngine {
             })
             .collect();
 
-        // 峰值标记位置
-        let peak_x = pad + (event.at as f32 - t_min) / t_range * plot_w;
+        // 峰值标记位置（使用实际峰值时刻，而非 spike 起始时刻）
+        let peak_x = pad + (event.peak_at as f32 - t_min) / t_range * plot_w;
         let peak_y = pad + plot_h - ((event.peak_bpm as f32 - bpm_min) / bpm_range * plot_h).clamp(0.0, plot_h);
 
         let ts = {
