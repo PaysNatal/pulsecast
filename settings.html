@@ -373,7 +373,7 @@
 
     // 页面加载时从服务端同步配置（Rust 端持久化）
     apiFetch("/api/config").then(function(r){ return r.json(); }).then(function(remote) {
-      var merged = Object.assign({}, remote, settings);
+      var merged = Object.assign({}, settings, remote);
       settings = merged;
       localStorage.setItem(LS_KEY, JSON.stringify(settings));
     }).catch(function(){});

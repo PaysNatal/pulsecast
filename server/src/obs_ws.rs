@@ -102,7 +102,7 @@ impl ObsWsClient {
         Ok(Self { stream, req_id: 0 })
     }
 
-    /// 发送 RPC 请求 (op:6) 并等待匹配的响应 (op:7)
+    /// 发送 RPC 请求 (op:6) 并等待匹配的响应 (op:7)，10 秒超时
     async fn request(&mut self, request_type: &str, data: Value) -> Result<Value> {
         self.req_id += 1;
         let id = format!("pc-{}", self.req_id);
@@ -120,24 +120,35 @@ impl ObsWsClient {
             .await
             .with_context(|| format!("发送 {request_type} 请求失败"))?;
 
-        // 等待匹配的 op:7 响应（跳过其他事件）
-        loop {
-            let resp = self.recv_op_raw().await?;
-            if resp["op"].as_u64() != Some(7) {
-                continue; // 跳过非响应消息（事件等）
-            }
-            let d = &resp["d"];
-            if d["requestId"].as_str() != Some(&id) {
-                continue; // 不是我们的请求
-            }
-            if d["requestStatus"]["result"].as_bool() != Some(true) {
-                let code = d["requestStatus"]["code"].as_u64().unwrap_or(0);
-                let comment = d["requestStatus"]["comment"]
-                    .as_str()
-                    .unwrap_or("未知错误");
-                bail!("OBS {request_type} 失败 (code {code}): {comment}");
-            }
-            return Ok(d["responseData"].clone());
+        // 等待匹配的 op:7 响应（跳过其他事件），10 秒超时
+        let result = tokio::time::timeout(
+            std::time::Duration::from_secs(10),
+            async {
+                loop {
+                    let resp = self.recv_op_raw().await?;
+                    if resp["op"].as_u64() != Some(7) {
+                        continue;
+                    }
+                    let d = &resp["d"];
+                    if d["requestId"].as_str() != Some(&id) {
+                        continue;
+                    }
+                    if d["requestStatus"]["result"].as_bool() != Some(true) {
+                        let code = d["requestStatus"]["code"].as_u64().unwrap_or(0);
+                        let comment = d["requestStatus"]["comment"]
+                            .as_str()
+                            .unwrap_or("未知错误");
+                        bail!("OBS {request_type} 失败 (code {code}): {comment}");
+                    }
+                    return Ok(d["responseData"].clone());
+                }
+            },
+        )
+        .await;
+
+        match result {
+            Ok(inner) => inner,
+            Err(_) => bail!("OBS {request_type} 响应超时 (10s)"),
         }
     }
 
@@ -221,24 +232,35 @@ impl ObsWsClient {
 
     // ── 内部辅助 ──
 
-    /// 接收指定 op 的消息
+    /// 接收指定 op 的消息（10 秒超时）
     async fn recv_op(stream: &mut WsStream, expected_op: u64) -> Result<Value> {
-        loop {
-            let msg = stream
-                .next()
-                .await
-                .context("OBS WebSocket 连接已关闭")?
-                .context("读取 OBS WebSocket 消息失败")?;
-            match msg {
-                Message::Text(t) => {
-                    let v: Value = serde_json::from_str(&t).context("OBS 消息 JSON 解析失败")?;
-                    if v["op"].as_u64() == Some(expected_op) {
-                        return Ok(v);
+        let result = tokio::time::timeout(
+            std::time::Duration::from_secs(10),
+            async {
+                loop {
+                    let msg = stream
+                        .next()
+                        .await
+                        .context("OBS WebSocket 连接已关闭")?
+                        .context("读取 OBS WebSocket 消息失败")?;
+                    match msg {
+                        Message::Text(t) => {
+                            let v: Value =
+                                serde_json::from_str(&t).context("OBS 消息 JSON 解析失败")?;
+                            if v["op"].as_u64() == Some(expected_op) {
+                                return Ok(v);
+                            }
+                        }
+                        Message::Close(_) => bail!("OBS WebSocket 连接被服务端关闭"),
+                        _ => continue,
                     }
                 }
-                Message::Close(_) => bail!("OBS WebSocket 连接被服务端关闭"),
-                _ => continue,
-            }
+            },
+        )
+        .await;
+        match result {
+            Ok(inner) => inner,
+            Err(_) => bail!("OBS WebSocket 握手超时 (10s)"),
         }
     }
 

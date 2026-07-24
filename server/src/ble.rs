@@ -123,7 +123,11 @@ pub async fn run_hr(
                                     if advertises_hr(&props)
                                         && p.connect().await.is_ok()
                                     {
-                                        let _ = p.discover_services().await;
+                                        let disc = p.discover_services().await;
+                                        if disc.is_err() {
+                                            let _ = p.disconnect().await;
+                                            continue;
+                                        }
                                         let chars = p.characteristics();
                                         let has_hr = chars.iter().any(|c| c.uuid == HR_MEASUREMENT);
                                         let matches = matcher.as_ref().is_none_or(|m| {
@@ -131,8 +135,11 @@ pub async fn run_hr(
                                             n.contains(m.as_str()) || id.to_string().contains(m.as_str())
                                         });
                                         if has_hr && matches {
-                                            let ch = chars.into_iter().find(|c| c.uuid == HR_MEASUREMENT).unwrap();
-                                            target = Some((p, ch));
+                                            if let Some(ch) = chars.into_iter().find(|c| c.uuid == HR_MEASUREMENT) {
+                                                target = Some((p, ch));
+                                            } else {
+                                                let _ = p.disconnect().await;
+                                            }
                                         } else {
                                             let _ = p.disconnect().await;
                                         }

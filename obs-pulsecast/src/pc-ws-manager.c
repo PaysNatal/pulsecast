@@ -62,6 +62,15 @@ pc_ws_mgr_t *pc_ws_mgr_acquire(const char *host, int port,
         pthread_mutex_init(&g_mgr->lock, NULL);
         g_mgr->ws = pc_ws_connect(g_mgr->host, g_mgr->port, "/ws",
                                    mgr_on_frame, g_mgr);
+        if (!g_mgr->ws) {
+            /* 连接失败：清理并返回 NULL，下次 acquire 会重试 */
+            pthread_mutex_destroy(&g_mgr->lock);
+            free(g_mgr->host);
+            free(g_mgr);
+            g_mgr = NULL;
+            pthread_mutex_unlock(&g_mgr_lock);
+            return NULL;
+        }
     }
 
     /* 注册回调 */

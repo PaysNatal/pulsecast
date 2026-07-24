@@ -425,9 +425,16 @@
       ws.onmessage = function (e) {
         try { applyState(JSON.parse(e.data)); } catch (_) {}
       };
-      ws.onerror = function () { startDemo(); };
-      ws.onclose = function () { startDemo(); };
+      ws.onerror = function () { ws = null; startDemo(); };
+      ws.onclose = function () {
+        ws = null;
+        // 5 秒后尝试重连，而非永久回退到演示模式
+        setTimeout(function() {
+          if (!ws) connectWS();
+        }, 5000);
+      };
     } catch (_) {
+      ws = null;
       startDemo();
     }
   }

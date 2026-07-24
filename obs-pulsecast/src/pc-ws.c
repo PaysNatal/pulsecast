@@ -222,7 +222,7 @@ int pc_ws_parse_control_kind(const char *json, char *out, size_t outsz)
 }
 
 /* 发送 HTTP Upgrade 握手 */
-static int pc_send_handshake(int sock, const char *host, int port, const char *path)
+static int pc_send_handshake(pc_sock_t sock, const char *host, int port, const char *path)
 {
     char req[512];
     int n = snprintf(req, sizeof(req),
@@ -240,7 +240,7 @@ static int pc_send_handshake(int sock, const char *host, int port, const char *p
 }
 
 /* 读取到 "\r\n\r\n" 表示握手响应结束 */
-static int pc_read_handshake(int sock)
+static int pc_read_handshake(pc_sock_t sock)
 {
     char buf[4];
     int seen_cr = 0, seen_lf = 0, got_blank = 0;
@@ -269,7 +269,7 @@ static int pc_read_handshake(int sock)
 
 /* 解析单个 WS 帧，返回 payload 长度（写入 out，需调用方 free），并填 opcode/fin。
  * 返回 -1 表示连接关闭/错误。 */
-static long pc_read_frame(int sock, char **out, unsigned char *opcode, int *fin)
+static long pc_read_frame(pc_sock_t sock, char **out, unsigned char *opcode, int *fin)
 {
     unsigned char hdr[2];
     if (recv(sock, (char *)hdr, 2, 0) != 2)
@@ -296,6 +296,8 @@ static long pc_read_frame(int sock, char **out, unsigned char *opcode, int *fin)
         if (recv(sock, (char *)mask, 4, 0) != 4)
             return -1;
     }
+    if (len <= 0 || len > 1048576) /* 最大 1MB，防恶意长度 OOM */
+        return -1;
     char *payload = malloc((size_t)len + 1);
     if (!payload)
         return -1;

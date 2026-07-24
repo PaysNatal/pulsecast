@@ -473,7 +473,12 @@ async fn ble_task(
 // ── Origin 校验中间件 ──────────────────────────────────────────────────────
 
 fn is_allowed_origin(origin: &str) -> bool {
-    if origin.starts_with("http://localhost") || origin.starts_with("http://127.0.0.1") {
+    // 精确匹配 localhost/127.0.0.1 前缀（防止 http://localhost.evil.com 绕过）
+    if origin == "http://localhost"
+        || origin.starts_with("http://localhost:")
+        || origin == "http://127.0.0.1"
+        || origin.starts_with("http://127.0.0.1:")
+    {
         return true;
     }
     if origin == "tauri://localhost" || origin == "https://tauri.localhost" {
@@ -594,26 +599,30 @@ pub async fn run_server(opts: Opts) {
         let hl = state.highlights.clone();
         tokio::spawn(async move {
             let mut prev_hl_count: usize = 0;
+            let mut last_replay_at: u64 = 0; // Replay Buffer 冷却（30s）
             while let Ok(f) = inner_rx.recv().await {
                 let th = *thr.lock().await;
                 let annotated = annotate(f, &th, &lz).await;
                 // 喂给名场面引擎
                 if annotated.bpm > 0 {
                     let mut engine = hl.lock().await;
+                    let now_ms = std::time::SystemTime::now()
+                        .duration_since(std::time::UNIX_EPOCH)
+                        .map(|d| d.as_millis() as u64)
+                        .unwrap_or(0);
                     engine.push(highlights::TimestampedFrame {
-                        at: std::time::SystemTime::now()
-                            .duration_since(std::time::UNIX_EPOCH)
-                            .map(|d| d.as_millis() as u64)
-                            .unwrap_or(0),
+                        at: now_ms,
                         bpm: annotated.bpm,
                         intensity: annotated.intensity,
                     });
-                    // 检测新名场面 → 触发 OBS Replay Buffer
-                    if engine.last_event_is_new(prev_hl_count) {
+                    // 检测新名场面 → 触发 OBS Replay Buffer（30s 冷却）
+                    if engine.last_event_is_new(prev_hl_count)
+                        && now_ms.saturating_sub(last_replay_at) > 30_000
+                    {
                         engine.mark_replay_saved();
+                        last_replay_at = now_ms;
                         prev_hl_count = engine.events().len();
                         drop(engine);
-                        // 异步触发 OBS Replay Buffer（不阻塞心率广播）
                         tokio::spawn(async {
                             let cfg = config::load().await;
                             let addr = cfg.obs_ws_addr.as_deref().unwrap_or("ws://localhost:4455");

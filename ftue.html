@@ -396,8 +396,8 @@
               else if (f.status === "connecting") document.getElementById("previewStatus").textContent = "连接中…";
             } catch(_) {}
           };
-          ws.onerror = function() { showDemoPreview(); };
-          ws.onclose = function() { showDemoPreview(); };
+          ws.onerror = function() { ws = null; showDemoPreview(); };
+          ws.onclose = function() { ws = null; showDemoPreview(); };
         } catch(_) { showDemoPreview(); }
       }
       if (window.__TAURI_INTERNALS__ && window.__TAURI_INTERNALS__.invoke) {

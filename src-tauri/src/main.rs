@@ -18,12 +18,10 @@ use tauri::{
 struct WsToken(String);
 
 fn generate_token() -> String {
-    use std::collections::hash_map::DefaultHasher;
-    use std::hash::{Hash, Hasher};
-    let mut hasher = DefaultHasher::new();
-    std::time::SystemTime::now().hash(&mut hasher);
-    std::process::id().hash(&mut hasher);
-    format!("{:016x}", hasher.finish())
+    // 使用 OS CSPRNG 生成 128-bit 随机 token（不可预测）
+    let mut buf = [0u8; 16];
+    getrandom::fill(&mut buf).expect("OS CSPRNG 不可用");
+    buf.iter().map(|b| format!("{:02x}", b)).collect()
 }
 
 #[tauri::command]

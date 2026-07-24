@@ -77,7 +77,12 @@ pub async fn save(cfg: &AppConfig) -> Result<(), String> {
             .map_err(|e| e.to_string())?;
     }
     let json = serde_json::to_string_pretty(cfg).map_err(|e| e.to_string())?;
-    tokio::fs::write(&path, json)
+    // 原子写入：先写临时文件再 rename，防止并发写入导致 JSON 损坏
+    let tmp = path.with_extension("json.tmp");
+    tokio::fs::write(&tmp, &json)
+        .await
+        .map_err(|e| e.to_string())?;
+    tokio::fs::rename(&tmp, &path)
         .await
         .map_err(|e| e.to_string())
 }

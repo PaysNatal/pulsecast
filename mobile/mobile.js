@@ -351,5 +351,5 @@
   // 首次进入先扫描（若支持 Web 蓝牙）
   setTimeout(scanBle, 400);
   // 断线自动重连
-  setInterval(() => { if (state.ws && state.ws.readyState > 1) connect(); }, 5000);
+  setInterval(() => { if (state.ws && state.ws.readyState === WebSocket.CLOSED) connect(); }, 5000);
 })();

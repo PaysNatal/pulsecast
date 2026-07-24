@@ -94,7 +94,9 @@ static void on_frame(void *user, const char *json, int bpm)
                 blog(LOG_INFO, "[pulsecast] 远程切场景 -> %s", scene);
             }
         } else if (strcmp(kind, "flash") == 0) {
+            pthread_mutex_lock(&d->lock);
             d->flash_until = os_gettime_ns() / 1000000 + 800; /* 800ms 高光 */
+            pthread_mutex_unlock(&d->lock);
         } else if (strcmp(kind, "set_threshold") == 0) {
             int hi = pc_ws_parse_int_field(json, "high");
             int lo = pc_ws_parse_int_field(json, "low");

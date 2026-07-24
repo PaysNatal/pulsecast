@@ -13,6 +13,8 @@ tauri = { version = "2", features = ["tray-icon", "image-png"] }
 # 内嵌心率服务（HTTP + WS，端口 4567），替代 Node 版 dev-server.mjs
 # 启用 ble feature 以接入真实蓝牙心率设备（无设备/无蓝牙时自动回退模拟源）
 pulsecast-server = { path = "../server", features = ["ble"] }
+# CSPRNG token 生成
+getrandom = "0.3"
 
 [profile.release]
 panic = "abort"
