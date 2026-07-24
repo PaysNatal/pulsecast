@@ -148,15 +148,19 @@ static void atmosphere_update(void *priv, obs_data_t *settings)
     if (np <= 0) np = DEFAULT_PORT;
     pthread_mutex_lock(&d->lock);
     int changed = (strcmp(nh ? nh : DEFAULT_HOST, d->host) != 0) || (np != d->port);
+    char *local_host = NULL;
+    int local_port = np;
     if (changed) {
         bfree(d->host);
         d->host = bstrdup(nh ? nh : DEFAULT_HOST);
         d->port = np;
+        local_host = bstrdup(d->host);
     }
     pthread_mutex_unlock(&d->lock);
     if (changed && d->ws) {
         pc_ws_mgr_release(d->ws, on_frame, d);
-        d->ws = pc_ws_mgr_acquire(d->host, d->port, on_frame, d);
+        d->ws = pc_ws_mgr_acquire(local_host, local_port, on_frame, d);
+        bfree(local_host);
     }
 }
 

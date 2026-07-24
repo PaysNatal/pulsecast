@@ -325,8 +325,9 @@
         card.dataset.profile = p.display_name;
         card.dataset.steps = JSON.stringify(p.setup_steps);
         card.dataset.issues = JSON.stringify(p.known_issues);
-        card.innerHTML = '<div class="pn">' + p.display_name + '</div><div class="ps">' +
-          (p.needs_app_config ? "需手机 App 配置" : "即连即用") + '</div>';
+        card.innerHTML = '<div class="pn"></div><div class="ps"></div>';
+        card.querySelector('.pn').textContent = p.display_name;
+        card.querySelector('.ps').textContent = p.needs_app_config ? "需手机 App 配置" : "即连即用";
         card.onclick = function() {
           document.querySelectorAll(".profile-card").forEach(function(c) { c.classList.remove("sel"); });
           card.classList.add("sel");
@@ -369,9 +370,16 @@
             var row = document.createElement("div");
             row.className = "dev-row";
             row.dataset.dev = d.name;
-            var profileTag = d.profile ? ' · ' + d.profile : '';
-            row.innerHTML = '<span class="pc-status-dot" data-status="connecting"></span>' +
-              '<div class="meta"><div class="n">' + d.name + '</div><div class="s">BLE 心率设备' + profileTag + (d.rssi ? ' · RSSI ' + d.rssi : '') + '</div></div>';
+            var nameEl = document.createElement("div");
+            nameEl.className = "n"; nameEl.textContent = d.name;
+            var subEl = document.createElement("div");
+            subEl.className = "s";
+            subEl.textContent = "BLE 心率设备" + (d.profile ? " · " + d.profile : "") + (d.rssi ? " · RSSI " + d.rssi : "");
+            row.innerHTML = '<span class="pc-status-dot" data-status="connecting"></span>';
+            var meta = document.createElement("div");
+            meta.className = "meta";
+            meta.appendChild(nameEl); meta.appendChild(subEl);
+            row.appendChild(meta);
             list.appendChild(row);
           });
         }

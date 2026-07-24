@@ -30,9 +30,13 @@
   };
 
   /* ───────── 导航 ───────── */
+  let currentScreen = "connect";
   function showScreen(name) {
+    currentScreen = name;
     $$(".screen").forEach((s) => { s.hidden = s.dataset.screen !== name; });
     $$(".tab").forEach((t) => t.classList.toggle("active", t.dataset.go === name));
+    // 仅在 live 屏运行 ECG 动画（省电）
+    if (name === "live") startEcg(); else stopEcg();
   }
   $$(".tab").forEach((t) => t.addEventListener("click", () => showScreen(t.dataset.go)));
 
@@ -307,6 +311,7 @@
   /* ───────── 名场面 ───────── */
   let lastHighlightCount = 0;
   async function fetchHighlights() {
+    if (currentScreen !== "live") return; // 仅在 live 屏轮询（省电省流量）
     try {
       const r = await apiFetch(`/api/highlights`);
       const events = await r.json();
@@ -347,7 +352,7 @@
   initSettingsUI();
   renderDevices(KNOWN);
   connect();
-  startEcg();
+  // ECG 由 showScreen("live") 按需启动，不在启动时全局运行
   // 首次进入先扫描（若支持 Web 蓝牙）
   setTimeout(scanBle, 400);
   // 断线自动重连

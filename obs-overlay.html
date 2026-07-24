@@ -366,7 +366,7 @@
 
     ctx.clearRect(0, 0, w, h);
     ctx.lineWidth = 2.5;
-    ctx.strokeStyle = "#FF4D6D";
+    ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue("--accent").trim() || "#FF4D6D";
     ctx.shadowColor = "rgba(255,77,109,0.6)";
     ctx.shadowBlur = 8;
     ctx.beginPath();
