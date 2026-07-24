@@ -207,6 +207,18 @@
               <button class="pc-btn" id="copyObsUrl" style="flex:none; font-size:13px; padding:8px 16px;">复制</button>
             </div>
           </div>
+          <div class="row" style="flex-direction:column; align-items:stretch; gap:10px; border-top:1px solid var(--border); padding-top:16px; margin-top:8px;">
+            <div><div class="name">OBS 一键注入</div><div class="desc">自动在 OBS 中创建/更新心率浏览器源（需 OBS 28+ 开启 WebSocket）</div></div>
+            <div style="display:flex; gap:8px;">
+              <input id="obsWsAddr" type="text" placeholder="ws://localhost:4455" style="flex:1; padding:8px 12px; border-radius:8px; border:1px solid var(--border); background:var(--surface-2); color:var(--text-primary); font-size:13px;" />
+              <input id="obsWsPwd" type="password" placeholder="WebSocket 密码" style="flex:1; padding:8px 12px; border-radius:8px; border:1px solid var(--border); background:var(--surface-2); color:var(--text-primary); font-size:13px;" />
+            </div>
+            <div style="display:flex; gap:8px;">
+              <button class="pc-btn" id="btnObsInject" style="flex:1;">一键添加到 OBS</button>
+              <button class="pc-btn-ghost" id="btnObsRemove" style="flex:none;">删除源</button>
+            </div>
+            <div id="obsInjectMsg" style="font-size:12px; color:var(--text-secondary); min-height:18px;"></div>
+          </div>
         </section>
 
         <!-- 端口 -->
@@ -378,6 +390,50 @@
         setTimeout(function(){ copyObsBtn.textContent = "复制"; }, 1500);
       });
     }
+
+    // OBS 一键注入 / 删除
+    (function() {
+      var addrEl = document.getElementById("obsWsAddr");
+      var pwdEl = document.getElementById("obsWsPwd");
+      var msgEl = document.getElementById("obsInjectMsg");
+      // 加载已保存的配置
+      apiFetch("/api/config").then(function(r){ return r.json(); }).then(function(cfg) {
+        if (cfg.obs_ws_addr) addrEl.value = cfg.obs_ws_addr;
+        if (cfg.obs_ws_password) pwdEl.value = cfg.obs_ws_password;
+      }).catch(function(){});
+
+      function saveObsCfg() {
+        var body = {};
+        if (addrEl.value.trim()) body.obs_ws_addr = addrEl.value.trim();
+        if (pwdEl.value.trim()) body.obs_ws_password = pwdEl.value.trim();
+        if (Object.keys(body).length) apiFetch("/api/config", { method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify(body) }).catch(function(){});
+      }
+
+      document.getElementById("btnObsInject").addEventListener("click", function() {
+        var btn = this; btn.disabled = true; btn.textContent = "注入中…";
+        saveObsCfg();
+        apiFetch("/api/obs/inject", { method: "POST" }).then(function(r){ return r.json(); }).then(function(res) {
+          btn.disabled = false; btn.textContent = "一键添加到 OBS";
+          msgEl.textContent = res.ok ? "✓ " + res.message : "✗ " + res.message;
+          msgEl.style.color = res.ok ? "var(--status-live)" : "var(--status-device-lost)";
+        }).catch(function(e) {
+          btn.disabled = false; btn.textContent = "一键添加到 OBS";
+          msgEl.textContent = "✗ 注入失败：" + e;
+          msgEl.style.color = "var(--status-device-lost)";
+        });
+      });
+
+      document.getElementById("btnObsRemove").addEventListener("click", function() {
+        saveObsCfg();
+        apiFetch("/api/obs/remove", { method: "POST" }).then(function(r){ return r.json(); }).then(function(res) {
+          msgEl.textContent = res.ok ? "✓ " + res.message : "✗ " + res.message;
+          msgEl.style.color = res.ok ? "var(--status-live)" : "var(--status-device-lost)";
+        }).catch(function(e) {
+          msgEl.textContent = "✗ 删除失败：" + e;
+          msgEl.style.color = "var(--status-device-lost)";
+        });
+      });
+    })();
 
     // BLE 断连状态提示（WS 监听）
     (function() {

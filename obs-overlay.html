@@ -187,7 +187,7 @@
     error: "连接错误",
   };
 
-  let state = { bpm: 0, status: "connecting", device: { name: "" }, message: "", threshold: null };
+  let state = { bpm: 0, status: "connecting", device: { name: "" }, message: "", threshold: null, intensity: 0 };
   let lastBeatAt = performance.now();
   let beatInterval = 833; // 60/72 ≈ 0.83s，演示默认 72bpm
 
@@ -370,9 +370,24 @@
     if (msg.message !== undefined) state.message = msg.message;
     if (msg.threshold) state.threshold = msg.threshold;
     if (msg.trigger) armAlert(msg.trigger);
+    if (typeof msg.intensity === "number") state.intensity = msg.intensity;
     // 实时刷新数字
     overlay.querySelectorAll(".bpm").forEach(function (el) {
       el.textContent = state.bpm || "--";
+    });
+    // 梯度视觉：高心率时数字变红 + 微放大
+    var intensity = state.intensity || 0;
+    overlay.querySelectorAll(".bpm").forEach(function (el) {
+      if (intensity > 0.7) {
+        el.style.color = "#FF2640";
+        el.style.transform = "scale(" + (1 + (intensity - 0.7) * 0.3) + ")";
+      } else if (intensity > 0.4) {
+        el.style.color = "#FF4D6D";
+        el.style.transform = "scale(1)";
+      } else {
+        el.style.color = "";
+        el.style.transform = "";
+      }
     });
     updateStatusUI();
     toast.classList.toggle("hidden", !(state.status === "error" || state.status === "device_lost") || !state.message);

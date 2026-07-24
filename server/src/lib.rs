@@ -262,6 +262,8 @@ pub struct Opts {
     pub threshold: Option<ThresholdCfg>,
     /// WS 连接认证 token（Tauri 启动时生成，前端通过 IPC 获取后附在 WS URL 参数中）
     pub token: Option<String>,
+    /// 启动时自动连接的设备名（配置零感知：记住上次设备）
+    pub initial_device: Option<String>,
 }
 
 // ── 共享状态 ───────────────────────────────────────────────────────────────
@@ -562,7 +564,7 @@ pub async fn run_server(opts: Opts) {
     };
     let (mode_tx, _) = watch::channel(initial_mode);
     #[cfg(feature = "ble")]
-    let (matcher_tx, _) = watch::channel::<Option<String>>(None);
+    let (matcher_tx, _) = watch::channel::<Option<String>>(opts.initial_device.clone());
     let controller = SourceController {
         inner_tx: inner_tx.clone(),
         src_current: src_current.clone(),

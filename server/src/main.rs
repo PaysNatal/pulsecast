@@ -69,6 +69,7 @@ async fn main() {
             _ => None,
         },
         token: cli.token,
+        initial_device: None,
     })
     .await;
 }

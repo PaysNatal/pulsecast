@@ -26,6 +26,7 @@ add_library(obs-pulsecast MODULE
     src/pulsecast-hr-source.c
     src/pulsecast-shake-filter.c
     src/pulsecast-glow-filter.c
+    src/pulsecast-atmosphere-filter.c
 )
 
 target_include_directories(obs-pulsecast PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)

@@ -16,7 +16,7 @@
   }
 
   .wizard {
-    width: 760px; max-width: 94vw;
+    width: 780px; max-width: 94vw;
     background: var(--surface); border: 1px solid var(--border);
     border-radius: 18px; box-shadow: var(--shadow-card);
     padding: 32px 38px 28px;
@@ -28,53 +28,60 @@
   .tagline { font-size: 13px; color: var(--text-secondary); margin-bottom: 24px; }
 
   .steps { display: flex; align-items: center; margin-bottom: 28px; }
-  .step { display: flex; align-items: center; gap: 10px; flex: none; }
+  .step { display: flex; align-items: center; gap: 8px; flex: none; }
   .step .num {
-    width: 30px; height: 30px; border-radius: 50%;
+    width: 28px; height: 28px; border-radius: 50%;
     display: flex; align-items: center; justify-content: center;
-    font-family: var(--font-num); font-weight: 700; font-size: 14px;
+    font-family: var(--font-num); font-weight: 700; font-size: 13px;
     background: var(--surface-2); color: var(--text-secondary); border: 1px solid var(--border);
   }
   .step.active .num { background: var(--accent); color: #fff; border-color: var(--accent); }
   .step.done .num { background: var(--status-live); color: #fff; border-color: var(--status-live); }
-  .step .lbl { font-size: 13px; color: var(--text-secondary); }
+  .step .lbl { font-size: 12px; color: var(--text-secondary); }
   .step.active .lbl, .step.done .lbl { color: var(--text-primary); }
-  .bar { flex: 1; height: 2px; background: var(--border); margin: 0 14px; }
+  .bar { flex: 1; height: 2px; background: var(--border); margin: 0 10px; }
   .bar.done { background: var(--status-live); }
 
   .panel { display: none; }
   .panel.active { display: block; }
 
-  /* 步骤 1：扫描 + 设备列表 */
-  .radar {
-    width: 120px; height: 120px; border-radius: 50%;
-    margin: 0 auto 20px; border: 2px solid var(--accent-soft);
-    position: relative; display: flex; align-items: center; justify-content: center;
+  /* 步骤 1：设备 Profile 卡片 */
+  .profile-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 16px; }
+  .profile-card {
+    padding: 14px; background: var(--surface-2); border: 1px solid var(--border);
+    border-radius: 10px; cursor: pointer; transition: border-color 0.15s; text-align: center;
   }
-  .radar::before {
-    content: ""; position: absolute; inset: 0; border-radius: 50%;
-    border: 2px solid var(--accent-soft); animation: ping 1.6s ease-out infinite;
-  }
-  @keyframes ping { 0% { transform: scale(0.55); opacity: 1; } 100% { transform: scale(1); opacity: 0; } }
-  .radar .core { width: 14px; height: 14px; border-radius: 50%; background: var(--accent); box-shadow: var(--shadow-glow); }
+  .profile-card:hover { border-color: var(--text-secondary); }
+  .profile-card.sel { border-color: var(--accent); background: var(--accent-soft); }
+  .profile-card .pn { font-size: 14px; font-weight: 600; margin-bottom: 4px; }
+  .profile-card .ps { font-size: 11px; color: var(--text-secondary); }
 
-  .devlist { display: flex; flex-direction: column; gap: 10px; }
+  .setup-guide {
+    background: var(--bg-base); border: 1px solid var(--border); border-radius: 10px;
+    padding: 14px 16px; margin-bottom: 14px; font-size: 13px; line-height: 1.8;
+    color: var(--text-secondary); display: none;
+  }
+  .setup-guide.show { display: block; }
+  .setup-guide b { color: var(--text-primary); }
+  .setup-guide .warn { color: var(--status-device-lost); font-size: 12px; }
+
+  .devlist { display: flex; flex-direction: column; gap: 8px; max-height: 180px; overflow-y: auto; }
   .dev-row {
-    display: flex; align-items: center; gap: 12px; padding: 12px 14px;
+    display: flex; align-items: center; gap: 12px; padding: 10px 14px;
     background: var(--surface-2); border: 1px solid var(--border);
     border-radius: 10px; cursor: pointer; transition: border-color 0.15s;
   }
   .dev-row:hover { border-color: var(--text-secondary); }
   .dev-row.sel { border-color: var(--accent); background: var(--accent-soft); }
   .dev-row .meta { flex: 1; }
-  .dev-row .meta .n { font-size: 14px; font-weight: 600; }
-  .dev-row .meta .s { font-size: 12px; color: var(--text-secondary); margin-top: 2px; }
-  .badge { font-size: 11px; color: var(--status-live); border: 1px solid var(--status-live); border-radius: 20px; padding: 2px 8px; }
+  .dev-row .meta .n { font-size: 13px; font-weight: 600; }
+  .dev-row .meta .s { font-size: 11px; color: var(--text-secondary); margin-top: 2px; }
+  .badge { font-size: 10px; color: var(--status-live); border: 1px solid var(--status-live); border-radius: 20px; padding: 2px 8px; }
 
   /* 步骤 2：预览 */
   .preview {
     display: flex; flex-direction: column; align-items: center; gap: 14px;
-    padding: 32px; background: var(--bg-base);
+    padding: 28px; background: var(--bg-base);
     border-radius: var(--radius-card); border: 1px dashed var(--border);
   }
   .mini-pill { display: flex; align-items: center; gap: 10px; background: rgba(14,17,22,0.55); border: 1px solid rgba(255,255,255,0.08); border-radius: 40px; padding: 12px 20px; }
@@ -83,28 +90,46 @@
   .mini-pill .u { font-size: 12px; color: var(--text-secondary); }
   .preview .status-line { font-size: 13px; color: var(--status-live); display: flex; align-items: center; gap: 6px; }
   .preview .status-line .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--status-live); }
+  .style-chips { display: flex; gap: 8px; margin-top: 10px; }
+  .style-chip {
+    padding: 6px 14px; border-radius: 20px; font-size: 12px; cursor: pointer;
+    background: var(--surface-2); border: 1px solid var(--border); color: var(--text-secondary);
+  }
+  .style-chip.active { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
 
-  /* 步骤 3：OBS 源 */
+  /* 步骤 3：OBS */
   .obs-box {
     background: var(--bg-base); border: 1px solid var(--border);
     border-radius: var(--radius-card); padding: 24px; text-align: center;
   }
   .obs-box .title { font-size: 15px; font-weight: 600; margin-bottom: 8px; }
   .obs-box .desc { font-size: 13px; color: var(--text-secondary); margin-bottom: 18px; line-height: 1.6; }
+  .obs-status { font-size: 13px; margin-bottom: 14px; padding: 10px; border-radius: 8px; }
+  .obs-status.ok { background: rgba(54,194,140,0.1); color: var(--status-live); }
+  .obs-status.fail { background: rgba(242,153,74,0.1); color: var(--status-device-lost); }
   .url-row {
     display: flex; align-items: center; gap: 10px;
     background: var(--surface-2); border: 1px solid var(--border);
-    border-radius: 10px; padding: 10px 14px; margin-bottom: 16px;
+    border-radius: 10px; padding: 10px 14px; margin-bottom: 14px;
   }
-  .url-row code { flex: 1; font-size: 13px; color: var(--accent); word-break: break-all; text-align: left; }
-  .url-row .copy-btn {
-    flex: none; font-family: var(--font-cn); font-size: 13px; font-weight: 600;
-    background: var(--accent); color: #fff; border: none; border-radius: 8px;
-    padding: 8px 16px; cursor: pointer;
-  }
-  .url-row .copy-btn:active { opacity: 0.8; }
+  .url-row code { flex: 1; font-size: 12px; color: var(--accent); word-break: break-all; text-align: left; }
   .obs-steps { text-align: left; font-size: 13px; color: var(--text-secondary); line-height: 2; }
   .obs-steps b { color: var(--text-primary); }
+  .pwd-row { display: flex; gap: 8px; margin-bottom: 14px; }
+  .pwd-row input { flex: 1; padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface-2); color: var(--text-primary); font-size: 13px; }
+
+  /* 步骤 4：检查清单 */
+  .checklist { display: flex; flex-direction: column; gap: 10px; }
+  .check-item {
+    display: flex; align-items: center; gap: 12px; padding: 12px 16px;
+    background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px;
+    font-size: 13px;
+  }
+  .check-item .icon { font-size: 18px; width: 24px; text-align: center; }
+  .check-item.pass { border-color: var(--status-live); }
+  .check-item.pass .icon { color: var(--status-live); }
+  .check-item.warn { border-color: var(--status-device-lost); }
+  .check-item.warn .icon { color: var(--status-device-lost); }
 
   .foot { display: flex; justify-content: space-between; align-items: center; margin-top: 26px; }
   .foot .hint { font-size: 12px; color: var(--text-tertiary); }
@@ -125,19 +150,27 @@
       <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 21s-7.5-4.9-10-9.2C.4 8.9 1.6 5.5 4.8 4.9c2-.4 3.8.7 4.7 2.3.9-1.6 2.7-2.7 4.7-2.3 3.2.6 4.4 4 2.8 6.9C19.5 16.1 12 21 12 21z"/></svg>
       <span class="name">怦然</span>
     </div>
-    <div class="tagline">主播心率，一眼心动 · 三步完成设置，OBS 即刻出画面</div>
+    <div class="tagline">主播心率，一眼心动 · 四步完成设置，OBS 即刻出画面</div>
 
     <div class="steps">
       <div class="step active" data-step="1"><div class="num">1</div><div class="lbl">连接设备</div></div>
       <div class="bar"></div>
       <div class="step" data-step="2"><div class="num">2</div><div class="lbl">预览心率</div></div>
       <div class="bar"></div>
-      <div class="step" data-step="3"><div class="num">3</div><div class="lbl">添加 OBS 源</div></div>
+      <div class="step" data-step="3"><div class="num">3</div><div class="lbl">添加 OBS</div></div>
+      <div class="bar"></div>
+      <div class="step" data-step="4"><div class="num">4</div><div class="lbl">开播检查</div></div>
     </div>
 
-    <!-- 步骤 1：连接设备 -->
+    <!-- 步骤 1：选择设备 -->
     <section class="panel active" id="p1">
-      <div class="radar"><div class="core"></div></div>
+      <div class="profile-grid" id="profileGrid">
+        <div class="profile-card sel" data-profile="mock">
+          <div class="pn">模拟心率源</div>
+          <div class="ps">无需设备，立即体验</div>
+        </div>
+      </div>
+      <div class="setup-guide" id="setupGuide"></div>
       <div class="devlist" id="devlist">
         <div class="dev-row sel" data-dev="mock">
           <span class="pc-status-dot" data-status="live"></span>
@@ -158,25 +191,47 @@
           <span class="b" id="previewBpm">--</span><span class="u">BPM</span>
         </div>
         <div class="status-line"><span class="dot"></span><span id="previewStatus">连接中…</span></div>
+        <div class="style-chips">
+          <span class="style-chip active" data-style="pill">心跳药丸</span>
+          <span class="style-chip" data-style="ecg">ECG 波形</span>
+          <span class="style-chip" data-style="number">极简数字</span>
+        </div>
       </div>
     </section>
 
-    <!-- 步骤 3：添加 OBS 源 -->
+    <!-- 步骤 3：添加 OBS -->
     <section class="panel" id="p3">
       <div class="obs-box">
         <div class="title">一键添加 OBS 浏览器源</div>
-        <div class="desc">复制下方地址，在 OBS 中添加「浏览器源」粘贴即可。<br/>心率将实时显示在直播画面中。</div>
-        <div class="url-row">
-          <code id="obsUrl">http://localhost:4567/obs?style=pill</code>
-          <button class="copy-btn" id="copyBtn">复制</button>
+        <div class="desc">自动检测本机 OBS，一键创建心率叠加层。<br/>也可手动复制地址到 OBS。</div>
+        <div class="obs-status" id="obsStatus">正在检测 OBS…</div>
+        <div id="obsInjectArea">
+          <button class="pc-btn" id="btnInject" style="width:100%;margin-bottom:14px;">一键添加到 OBS</button>
         </div>
-        <div class="obs-steps">
-          <b>1.</b> 打开 OBS → 来源面板 → 点击「+」→ 选择「浏览器」<br/>
-          <b>2.</b> 粘贴上方地址 → 设置宽度 <b>800</b> / 高度 <b>200</b><br/>
-          <b>3.</b> 勾选「关闭源时关闭浏览器」→ 点击确定<br/>
-          <b>4.</b> 直播画面即出现心率叠层，可拖拽调整位置<br/>
-          <b>5.</b> 切换样式：将 URL 中 <b>style=pill</b> 改为 <b>ecg</b>（波形）或 <b>number</b>（大数字）
+        <div id="obsPwdArea" style="display:none;">
+          <div class="pwd-row">
+            <input id="obsPwd" type="password" placeholder="OBS WebSocket 密码（OBS → 工具 → WebSocket 服务器设置）" />
+            <button class="pc-btn-ghost" id="btnRetryObs">重试</button>
+          </div>
         </div>
+        <div style="border-top:1px solid var(--border);padding-top:14px;margin-top:4px;">
+          <div class="url-row">
+            <code id="obsUrl">http://localhost:4567/obs?style=pill</code>
+            <button class="pc-btn-ghost" id="copyBtn" style="flex:none;padding:6px 12px;font-size:12px;">复制</button>
+          </div>
+          <div class="obs-steps">
+            <b>手动添加：</b>OBS → 来源「+」→ 浏览器 → 粘贴上方地址 → 宽 800 / 高 200
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 步骤 4：开播检查 -->
+    <section class="panel" id="p4">
+      <div class="checklist" id="checklist">
+        <div class="check-item" id="chk-hr"><span class="icon">○</span><span>心率数据正常</span></div>
+        <div class="check-item" id="chk-obs"><span class="icon">○</span><span>OBS 心率源在线</span></div>
+        <div class="check-item" id="chk-thr"><span class="icon">○</span><span>阈值已设置</span></div>
       </div>
     </section>
 
@@ -190,95 +245,133 @@
   <div class="toast-ok" id="toastOk">已复制到剪贴板</div>
 
   <script>
-    var total = 3, cur = 1;
+    var total = 4, cur = 1;
     var prev = document.getElementById("prev");
     var next = document.getElementById("next");
     var hint = document.getElementById("hint");
     var ws = null;
     var selectedDevice = "mock";
-    var appToken = ""; // 由 Tauri IPC 或 URL 参数获取
+    var selectedStyle = "pill";
+    var appToken = "";
+    var obsConnected = false;
 
-    // 获取 token：Tauri IPC 优先，URL 参数兜底
+    // ── Token 获取 ──
     (function initToken() {
       var tp = new URLSearchParams(location.search).get("token");
       if (window.__TAURI_INTERNALS__ && window.__TAURI_INTERNALS__.invoke) {
         window.__TAURI_INTERNALS__.invoke("get_ws_token").then(function(tok) {
-          appToken = tok || tp || "";
-          updateObsUrl();
+          appToken = tok || tp || ""; updateObsUrl();
         }).catch(function() { appToken = tp || ""; updateObsUrl(); });
-      } else {
-        appToken = tp || "";
-        updateObsUrl();
-      }
+      } else { appToken = tp || ""; updateObsUrl(); }
     })();
 
-    function updateObsUrl() {
-      var base = "http://localhost:4567/obs?style=pill";
-      document.getElementById("obsUrl").textContent = appToken ? base + "&token=" + encodeURIComponent(appToken) : base;
-    }
-
-    // API 请求辅助：自动附加 token
     function apiFetch(url, opts) {
       opts = opts || {};
-      if (appToken) {
-        opts.headers = Object.assign({}, opts.headers, { "Authorization": "Bearer " + appToken });
-      }
+      if (appToken) opts.headers = Object.assign({}, opts.headers, { "Authorization": "Bearer " + appToken });
       return fetch(url, opts);
     }
 
+    function updateObsUrl() {
+      var base = "http://localhost:4567/obs?style=" + selectedStyle;
+      document.getElementById("obsUrl").textContent = appToken ? base + "&token=" + encodeURIComponent(appToken) : base;
+    }
+
+    // ── 导航 ──
     function show(n) {
       cur = n;
-      document.querySelectorAll(".panel").forEach(function (p) { p.classList.remove("active"); });
+      document.querySelectorAll(".panel").forEach(function(p) { p.classList.remove("active"); });
       document.getElementById("p" + n).classList.add("active");
-      document.querySelectorAll(".step").forEach(function (s) {
+      document.querySelectorAll(".step").forEach(function(s) {
         var k = +s.dataset.step;
         s.classList.toggle("active", k === n);
         s.classList.toggle("done", k < n);
       });
-      document.querySelectorAll(".bar").forEach(function (b, i) { b.classList.toggle("done", i < n - 1); });
+      document.querySelectorAll(".bar").forEach(function(b, i) { b.classList.toggle("done", i < n - 1); });
       prev.disabled = n === 1;
-      next.textContent = n === total ? "完成设置" : "下一步";
-      hint.textContent = n === 1 ? "选择心率设备并连接"
-                      : n === 2 ? "确认心率数据正常"
-                      : "复制到 OBS，开始直播！";
+      next.textContent = n === total ? "开始直播" : "下一步";
+      hint.textContent = ["选择心率设备并连接", "确认心率数据正常", "添加到 OBS", "确认一切就绪，开播！"][n - 1];
       if (n === 2) startPreview();
+      if (n === 3) checkObs();
+      if (n === 4) runChecklist();
     }
+    prev.onclick = function() { if (cur > 1) show(cur - 1); };
+    next.onclick = function() {
+      if (cur < total) { show(cur + 1); return; }
+      // 完成：切换到 BLE 模式
+      if (selectedDevice !== "mock") {
+        apiFetch("/api/source", {
+          method: "POST", headers: {"Content-Type":"application/json"},
+          body: JSON.stringify({ mode: "ble", device: selectedDevice })
+        }).catch(function(){});
+      }
+      hint.textContent = "设置完成！直播愉快 ❤";
+      next.disabled = true; prev.disabled = true;
+    };
+
+    // ── 步骤 1：设备 Profile ──
+    apiFetch("/api/ble/profiles").then(function(r) { return r.json(); }).then(function(profiles) {
+      var grid = document.getElementById("profileGrid");
+      profiles.forEach(function(p) {
+        var card = document.createElement("div");
+        card.className = "profile-card";
+        card.dataset.profile = p.display_name;
+        card.dataset.steps = JSON.stringify(p.setup_steps);
+        card.dataset.issues = JSON.stringify(p.known_issues);
+        card.innerHTML = '<div class="pn">' + p.display_name + '</div><div class="ps">' +
+          (p.needs_app_config ? "需手机 App 配置" : "即连即用") + '</div>';
+        card.onclick = function() {
+          document.querySelectorAll(".profile-card").forEach(function(c) { c.classList.remove("sel"); });
+          card.classList.add("sel");
+          var guide = document.getElementById("setupGuide");
+          var steps = JSON.parse(card.dataset.steps);
+          var issues = JSON.parse(card.dataset.issues);
+          var html = steps.map(function(s, i) { return "<b>" + (i+1) + ".</b> " + s; }).join("<br>");
+          if (issues.length) html += '<br><span class="warn">⚠ ' + issues.join("；") + '</span>';
+          guide.innerHTML = html;
+          guide.classList.add("show");
+        };
+        grid.appendChild(card);
+      });
+    }).catch(function(){});
+
+    // 模拟源卡片点击
+    document.querySelector('[data-profile="mock"]').onclick = function() {
+      document.querySelectorAll(".profile-card").forEach(function(c) { c.classList.remove("sel"); });
+      this.classList.add("sel");
+      document.getElementById("setupGuide").classList.remove("show");
+    };
 
     // 设备选择
     document.getElementById("devlist").addEventListener("click", function(e) {
       var row = e.target.closest(".dev-row");
       if (!row) return;
-      document.querySelectorAll(".dev-row").forEach(function (x) { x.classList.remove("sel"); });
+      document.querySelectorAll(".dev-row").forEach(function(x) { x.classList.remove("sel"); });
       row.classList.add("sel");
       selectedDevice = row.dataset.dev;
     });
 
-    // 扫描蓝牙设备
-    document.getElementById("rescan").onclick = function () {
+    // 扫描蓝牙
+    document.getElementById("rescan").onclick = function() {
       var btn = this;
-      btn.textContent = "扫描中…";
-      btn.disabled = true;
-      apiFetch("/api/ble/scan").then(function(r){ return r.json(); }).then(function(data) {
+      btn.textContent = "扫描中…"; btn.disabled = true;
+      apiFetch("/api/ble/scan").then(function(r) { return r.json(); }).then(function(data) {
         if (data.devices && data.devices.length > 0) {
           var list = document.getElementById("devlist");
           data.devices.forEach(function(d) {
             var row = document.createElement("div");
             row.className = "dev-row";
             row.dataset.dev = d.name;
+            var profileTag = d.profile ? ' · ' + d.profile : '';
             row.innerHTML = '<span class="pc-status-dot" data-status="connecting"></span>' +
-              '<div class="meta"><div class="n">' + d.name + '</div><div class="s">BLE 心率设备' + (d.rssi ? ' · RSSI ' + d.rssi : '') + '</div></div>';
+              '<div class="meta"><div class="n">' + d.name + '</div><div class="s">BLE 心率设备' + profileTag + (d.rssi ? ' · RSSI ' + d.rssi : '') + '</div></div>';
             list.appendChild(row);
           });
         }
-        btn.textContent = "扫描蓝牙设备";
-        btn.disabled = false;
-      }).catch(function() {
-        btn.textContent = "扫描蓝牙设备";
-        btn.disabled = false;
-      });
+        btn.textContent = "扫描蓝牙设备"; btn.disabled = false;
+      }).catch(function() { btn.textContent = "扫描蓝牙设备"; btn.disabled = false; });
     };
 
-    // 步骤 2：实时预览
+    // ── 步骤 2：预览 ──
     function startPreview() {
       if (ws) return;
       var wsUrl = "ws://" + location.host + "/ws";
@@ -290,14 +383,9 @@
           ws.onmessage = function(e) {
             try {
               var f = JSON.parse(e.data);
-              if (typeof f.bpm === "number") {
-                document.getElementById("previewBpm").textContent = f.bpm || "--";
-              }
-              if (f.status === "live") {
-                document.getElementById("previewStatus").textContent = "实时 · " + (f.device ? f.device.name : "已连接");
-              } else if (f.status === "connecting") {
-                document.getElementById("previewStatus").textContent = "连接中…";
-              }
+              if (typeof f.bpm === "number") document.getElementById("previewBpm").textContent = f.bpm || "--";
+              if (f.status === "live") document.getElementById("previewStatus").textContent = "实时 · " + (f.device ? f.device.name : "已连接");
+              else if (f.status === "connecting") document.getElementById("previewStatus").textContent = "连接中…";
             } catch(_) {}
           };
           ws.onerror = function() { showDemoPreview(); };
@@ -306,50 +394,140 @@
       }
       if (window.__TAURI_INTERNALS__ && window.__TAURI_INTERNALS__.invoke) {
         window.__TAURI_INTERNALS__.invoke("get_ws_token").then(function(tok) { doConnect(tok); }).catch(function() { doConnect(tokenParam || ""); });
-      } else {
-        doConnect(tokenParam || "");
-      }
+      } else { doConnect(tokenParam || ""); }
     }
-
     function showDemoPreview() {
       document.getElementById("previewBpm").textContent = "72";
       document.getElementById("previewStatus").textContent = "演示模式 · 模拟心率";
     }
 
-    // 步骤 3：复制 OBS URL
-    document.getElementById("copyBtn").onclick = function () {
-      var url = document.getElementById("obsUrl").textContent;
-      if (navigator.clipboard) {
-        navigator.clipboard.writeText(url).then(showToast);
-      } else {
-        var ta = document.createElement("textarea");
-        ta.value = url; document.body.appendChild(ta);
-        ta.select(); document.execCommand("copy");
-        document.body.removeChild(ta);
-        showToast();
-      }
-    };
-    function showToast() {
-      var t = document.getElementById("toastOk");
-      t.classList.add("show");
-      setTimeout(function(){ t.classList.remove("show"); }, 1800);
+    // 样式切换
+    document.querySelectorAll(".style-chip").forEach(function(chip) {
+      chip.onclick = function() {
+        document.querySelectorAll(".style-chip").forEach(function(c) { c.classList.remove("active"); });
+        chip.classList.add("active");
+        selectedStyle = chip.dataset.style;
+        updateObsUrl();
+      };
+    });
+
+    // ── 步骤 3：OBS 检测 ──
+    function checkObs() {
+      var el = document.getElementById("obsStatus");
+      el.className = "obs-status";
+      el.textContent = "正在检测 OBS…";
+      apiFetch("/api/obs/status").then(function(r) { return r.json(); }).then(function(s) {
+        obsConnected = s.connected;
+        if (s.connected) {
+          el.className = "obs-status ok";
+          el.textContent = "✓ 已连接 OBS " + s.version + " · 场景：" + s.scene + (s.has_source ? " · 心率源已存在" : "");
+          document.getElementById("obsPwdArea").style.display = "none";
+          document.getElementById("btnInject").textContent = s.has_source ? "更新 OBS 心率源" : "一键添加到 OBS";
+        } else {
+          el.className = "obs-status fail";
+          el.textContent = "未检测到 OBS · 请确认 OBS 已开启 WebSocket（工具 → WebSocket 服务器设置）";
+          document.getElementById("obsPwdArea").style.display = "block";
+        }
+      }).catch(function() {
+        el.className = "obs-status fail";
+        el.textContent = "检测失败 · 请确认服务正在运行";
+      });
     }
 
-    // 导航
-    prev.onclick = function () { if (cur > 1) show(cur - 1); };
-    next.onclick = function () {
-      if (cur < total) { show(cur + 1); return; }
-      // 完成：切换到 BLE 模式（如果选了真实设备）
-      if (selectedDevice !== "mock") {
-        apiFetch("/api/source", {
-          method: "POST",
-          headers: {"Content-Type":"application/json"},
-          body: JSON.stringify({ mode: "ble", device: selectedDevice })
-        }).catch(function(){});
+    document.getElementById("btnInject").onclick = function() {
+      var btn = this;
+      btn.disabled = true; btn.textContent = "注入中…";
+      // 先保存密码（如果有）
+      var pwd = document.getElementById("obsPwd").value.trim();
+      if (pwd) {
+        apiFetch("/api/config", { method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify({ obs_ws_password: pwd }) }).catch(function(){});
       }
-      hint.textContent = "设置完成！OBS 中添加浏览器源即可开播。";
-      next.disabled = true; prev.disabled = true;
+      apiFetch("/api/obs/inject", { method: "POST" }).then(function(r) { return r.json(); }).then(function(res) {
+        btn.disabled = false;
+        if (res.ok) {
+          btn.textContent = "✓ " + res.message;
+          showToastMsg(res.message);
+        } else {
+          btn.textContent = "一键添加到 OBS";
+          showToastMsg("注入失败：" + res.message);
+        }
+      }).catch(function(e) {
+        btn.disabled = false; btn.textContent = "一键添加到 OBS";
+        showToastMsg("注入失败：" + e);
+      });
     };
+
+    document.getElementById("btnRetryObs").onclick = function() {
+      var pwd = document.getElementById("obsPwd").value.trim();
+      if (pwd) {
+        apiFetch("/api/config", { method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify({ obs_ws_password: pwd }) }).catch(function(){});
+      }
+      checkObs();
+    };
+
+    document.getElementById("copyBtn").onclick = function() {
+      var url = document.getElementById("obsUrl").textContent;
+      if (navigator.clipboard) navigator.clipboard.writeText(url).then(showToast);
+      else { var ta = document.createElement("textarea"); ta.value = url; document.body.appendChild(ta); ta.select(); document.execCommand("copy"); document.body.removeChild(ta); showToast(); }
+    };
+
+    // ── 步骤 4：开播检查 ──
+    function runChecklist() {
+      // 心率检查
+      var hrEl = document.getElementById("chk-hr");
+      var bpmText = document.getElementById("previewBpm").textContent;
+      if (bpmText && bpmText !== "--" && bpmText !== "0") {
+        hrEl.className = "check-item pass";
+        hrEl.querySelector(".icon").textContent = "✓";
+        hrEl.querySelector("span:last-child").textContent = "心率数据正常 · " + bpmText + " BPM";
+      } else {
+        hrEl.className = "check-item warn";
+        hrEl.querySelector(".icon").textContent = "!";
+        hrEl.querySelector("span:last-child").textContent = "未检测到心率数据";
+      }
+
+      // OBS 检查
+      var obsEl = document.getElementById("chk-obs");
+      apiFetch("/api/obs/status").then(function(r) { return r.json(); }).then(function(s) {
+        if (s.connected && s.has_source) {
+          obsEl.className = "check-item pass";
+          obsEl.querySelector(".icon").textContent = "✓";
+          obsEl.querySelector("span:last-child").textContent = "OBS 心率源在线 · 场景：" + s.scene;
+        } else if (s.connected) {
+          obsEl.className = "check-item warn";
+          obsEl.querySelector(".icon").textContent = "!";
+          obsEl.querySelector("span:last-child").textContent = "OBS 已连接但未添加心率源（返回上一步注入）";
+        } else {
+          obsEl.className = "check-item warn";
+          obsEl.querySelector(".icon").textContent = "!";
+          obsEl.querySelector("span:last-child").textContent = "OBS 未连接（可稍后手动添加浏览器源）";
+        }
+      }).catch(function() {
+        obsEl.className = "check-item warn";
+        obsEl.querySelector(".icon").textContent = "!";
+      });
+
+      // 阈值检查
+      var thrEl = document.getElementById("chk-thr");
+      apiFetch("/api/config").then(function(r) { return r.json(); }).then(function(cfg) {
+        if (cfg.hr_high && cfg.hr_low) {
+          thrEl.className = "check-item pass";
+          thrEl.querySelector(".icon").textContent = "✓";
+          thrEl.querySelector("span:last-child").textContent = "阈值已设置 · 高 " + cfg.hr_high + " / 低 " + cfg.hr_low + " BPM";
+        } else {
+          thrEl.className = "check-item pass";
+          thrEl.querySelector(".icon").textContent = "✓";
+          thrEl.querySelector("span:last-child").textContent = "阈值使用默认值 · 高 150 / 低 55 BPM";
+        }
+      }).catch(function() {
+        thrEl.className = "check-item pass";
+        thrEl.querySelector(".icon").textContent = "✓";
+      });
+    }
+
+    // ── Toast ──
+    function showToast() { var t = document.getElementById("toastOk"); t.textContent = "已复制到剪贴板"; t.classList.add("show"); setTimeout(function(){ t.classList.remove("show"); }, 1800); }
+    function showToastMsg(msg) { var t = document.getElementById("toastOk"); t.textContent = msg; t.classList.add("show"); setTimeout(function(){ t.classList.remove("show"); }, 2500); }
 
     show(1);
   </script>

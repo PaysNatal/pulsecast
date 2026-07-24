@@ -7,6 +7,7 @@
 #include "pulsecast-hr-source.h"
 #include "pulsecast-shake-filter.h"
 #include "pulsecast-glow-filter.h"
+#include "pulsecast-atmosphere-filter.h"
 
 OBS_DECLARE_MODULE()
 OBS_MODULE_USE_DEFAULT_LOCALE("obs-pulsecast", "zh-CN")
@@ -16,7 +17,8 @@ bool obs_module_load(void)
     obs_register_source(&pulsecast_hr_source_info);
     obs_register_source(&pulsecast_shake_filter_info);
     obs_register_source(&pulsecast_glow_filter_info);
-    blog(LOG_INFO, "[obs-pulsecast] 已加载：心率源 + 抖动/发光滤镜");
+    obs_register_source(&pulsecast_atmosphere_filter_info);
+    blog(LOG_INFO, "[obs-pulsecast] 已加载：心率源 + 抖动/发光/氛围滤镜");
     return true;
 }
 
