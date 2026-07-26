@@ -11,12 +11,12 @@
     font-family: var(--font-cn);
     background: var(--bg-base);
     color: var(--text-primary);
-    height: 100vh; display: flex; align-items: center; justify-content: center;
+    min-height: 100vh; display: flex; padding: 24px 0;
     -webkit-font-smoothing: antialiased;
   }
 
   .wizard {
-    width: 780px; max-width: 94vw;
+    width: 780px; max-width: 94vw; margin: auto;
     background: var(--surface); border: 1px solid var(--border);
     border-radius: 18px; box-shadow: var(--shadow-card);
     padding: 32px 38px 28px;
@@ -45,16 +45,52 @@
   .panel { display: none; }
   .panel.active { display: block; }
 
-  /* 步骤 1：设备 Profile 卡片 */
-  .profile-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 16px; }
-  .profile-card {
-    padding: 14px; background: var(--surface-2); border: 1px solid var(--border);
-    border-radius: 10px; cursor: pointer; transition: border-color 0.15s; text-align: center;
+  /* 步骤 1：搜索框 */
+  .search-row { position: relative; display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+  .search-ic { position: absolute; left: 12px; width: 15px; height: 15px; color: var(--text-tertiary); pointer-events: none; }
+  #profileSearch {
+    flex: 1; padding: 10px 12px 10px 34px; font-family: var(--font-cn); font-size: 13px;
+    background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px;
+    color: var(--text-primary); transition: border-color 0.15s, box-shadow 0.15s;
   }
-  .profile-card:hover { border-color: var(--text-secondary); }
+  #profileSearch:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+  #profileSearch::placeholder { color: var(--text-tertiary); }
+  .search-count { font-family: var(--font-num); font-size: 11px; color: var(--text-tertiary); white-space: nowrap; }
+
+  /* 步骤 1：分组卡片网格（可滚动，避免 17+ 卡片撑爆向导） */
+  .profile-scroll { max-height: 324px; overflow-y: auto; padding-right: 6px; margin: 0 -6px 14px 0; }
+  .profile-scroll::-webkit-scrollbar { width: 6px; }
+  .profile-scroll::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  .pgroup { margin-bottom: 14px; }
+  .pgroup:last-child { margin-bottom: 2px; }
+  .pgroup-title {
+    display: flex; align-items: center; gap: 10px; margin-bottom: 8px;
+    font-size: 11px; font-weight: 600; letter-spacing: 2px; color: var(--text-tertiary);
+  }
+  .pgroup-title::after { content: ""; flex: 1; height: 1px; background: var(--border); }
+  .profile-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  .mock-grid { grid-template-columns: 1fr; }
+  .profile-card {
+    position: relative; padding: 14px; background: var(--surface-2); border: 1px solid var(--border);
+    border-radius: 10px; cursor: pointer; text-align: center;
+    transition: border-color 0.15s, background 0.15s, transform 0.15s;
+  }
+  .profile-card:hover { border-color: var(--text-secondary); transform: translateY(-2px); }
   .profile-card.sel { border-color: var(--accent); background: var(--accent-soft); }
   .profile-card .pn { font-size: 14px; font-weight: 600; margin-bottom: 4px; }
   .profile-card .ps { font-size: 11px; color: var(--text-secondary); }
+  .profile-card.mock { display: flex; align-items: baseline; justify-content: center; gap: 10px; padding: 12px; }
+  .profile-card.mock .pn { margin-bottom: 0; }
+  /* 实验性 profile（如 Apple Watch）：灰化 + 虚线边 + 角标 */
+  .profile-card.exp { border-style: dashed; border-color: rgba(242,153,74,0.55); opacity: 0.88; }
+  .profile-card.exp .pn { color: var(--text-secondary); }
+  .exp-flag {
+    position: absolute; top: -1px; right: -1px; padding: 2px 8px;
+    font-size: 10px; line-height: 1.4; color: var(--status-device-lost);
+    background: rgba(242,153,74,0.12); border: 1px solid rgba(242,153,74,0.45);
+    border-radius: 0 10px 0 8px;
+  }
+  .no-match { display: none; padding: 16px 0 8px; text-align: center; font-size: 12px; color: var(--text-tertiary); }
 
   .setup-guide {
     background: var(--bg-base); border: 1px solid var(--border); border-radius: 10px;
@@ -64,6 +100,20 @@
   .setup-guide.show { display: block; }
   .setup-guide b { color: var(--text-primary); }
   .setup-guide .warn { color: var(--status-device-lost); font-size: 12px; }
+  .guide-head { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; margin-bottom: 6px; }
+  .guide-name { font-size: 14px; font-weight: 700; color: var(--text-primary); }
+  .guide-tag { font-size: 11px; color: var(--text-tertiary); }
+  .guide-app { font-size: 11px; color: var(--accent); background: var(--accent-soft); border-radius: 20px; padding: 2px 10px; }
+  .guide-steps { margin: 2px 0 4px; }
+  .guide-steps .gs { display: flex; gap: 8px; }
+  .guide-steps .gi { flex: none; min-width: 16px; text-align: right; font-family: var(--font-num); font-weight: 700; color: var(--accent); }
+  .guide-fix {
+    margin-top: 10px; padding: 10px 12px; background: var(--surface-2);
+    border-left: 3px solid var(--status-device-lost); border-radius: 0 8px 8px 0;
+  }
+  .guide-fix-title { font-size: 12px; font-weight: 700; color: var(--status-device-lost); margin-bottom: 2px; }
+  .guide-fix .fx { font-size: 12px; line-height: 1.7; }
+  .guide-fix .fx::before { content: "› "; color: var(--status-device-lost); }
 
   .devlist { display: flex; flex-direction: column; gap: 8px; max-height: 180px; overflow-y: auto; }
   .dev-row {
@@ -164,13 +214,26 @@
 
     <!-- 步骤 1：选择设备 -->
     <section class="panel active" id="p1">
-      <div class="profile-grid" id="profileGrid">
-        <div class="profile-card sel" data-profile="mock">
-          <div class="pn">模拟心率源</div>
-          <div class="ps">无需设备，立即体验</div>
+      <div class="search-row">
+        <svg class="search-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+        <input id="profileSearch" type="search" placeholder="搜索品牌或型号 — 如「小米」「Garmin」「Polar」" autocomplete="off" aria-label="搜索设备预设" />
+        <span class="search-count" id="profileCount"></span>
+      </div>
+      <div class="profile-scroll">
+        <div class="pgroup">
+          <div class="pgroup-title">快速体验 · 无需设备</div>
+          <div class="profile-grid mock-grid">
+            <div class="profile-card mock sel" data-profile="mock">
+              <div class="pn">模拟心率源</div>
+              <div class="ps">无需设备，立即体验</div>
+            </div>
+          </div>
         </div>
+        <div id="profileGroups"></div>
+        <div class="no-match" id="noMatch">没有匹配的设备 — 换个关键词试试，或直接扫描蓝牙查找</div>
       </div>
       <div class="setup-guide" id="setupGuide"></div>
+      <div class="pgroup-title">蓝牙设备 · 扫描后选择</div>
       <div class="devlist" id="devlist">
         <div class="dev-row sel" data-dev="mock">
           <span class="pc-status-dot" data-status="live"></span>
@@ -316,32 +379,186 @@
       next.disabled = true; prev.disabled = true;
     };
 
-    // ── 步骤 1：设备 Profile ──
+    // ── 步骤 1：设备 Profile（搜索 + 分组 + 富引导） ──
+    var allProfiles = [];
+    // 分组顺序：手环 → 手表 → 运动手表 → 胸带 → 实验性；未识别 category 兜底进「其他」
+    var CATEGORY_GROUPS = [
+      { title: "手环 / 手表", cats: ["手环", "手表"] },
+      { title: "运动手表", cats: ["运动手表"] },
+      { title: "心率胸带", cats: ["胸带"] },
+      { title: "实验性 · 非官方支持", cats: ["实验性"] }
+    ];
+
     apiFetch("/api/ble/profiles").then(function(r) { return r.json(); }).then(function(profiles) {
-      var grid = document.getElementById("profileGrid");
-      profiles.forEach(function(p) {
-        var card = document.createElement("div");
-        card.className = "profile-card";
-        card.dataset.profile = p.display_name;
-        card.dataset.steps = JSON.stringify(p.setup_steps);
-        card.dataset.issues = JSON.stringify(p.known_issues);
-        card.innerHTML = '<div class="pn"></div><div class="ps"></div>';
-        card.querySelector('.pn').textContent = p.display_name;
-        card.querySelector('.ps').textContent = p.needs_app_config ? "需手机 App 配置" : "即连即用";
-        card.onclick = function() {
-          document.querySelectorAll(".profile-card").forEach(function(c) { c.classList.remove("sel"); });
-          card.classList.add("sel");
-          var guide = document.getElementById("setupGuide");
-          var steps = JSON.parse(card.dataset.steps);
-          var issues = JSON.parse(card.dataset.issues);
-          var html = steps.map(function(s, i) { return "<b>" + (i+1) + ".</b> " + s; }).join("<br>");
-          if (issues.length) html += '<br><span class="warn">⚠ ' + issues.join("；") + '</span>';
-          guide.innerHTML = html;
-          guide.classList.add("show");
-        };
-        grid.appendChild(card);
-      });
+      allProfiles = Array.isArray(profiles) ? profiles : [];
+      renderProfileGroups();
     }).catch(function(){});
+
+    function renderProfileGroups() {
+      var root = document.getElementById("profileGroups");
+      root.innerHTML = "";
+      var placed = {};
+      CATEGORY_GROUPS.forEach(function(def) {
+        var idxs = [];
+        allProfiles.forEach(function(p, idx) {
+          if (def.cats.indexOf((p && p.category) || "") !== -1) { idxs.push(idx); placed[idx] = true; }
+        });
+        if (idxs.length) root.appendChild(buildGroup(def.title, idxs));
+      });
+      // 兜底：category 缺失或不在已知分组内的 profile 仍展示，不丢不抛错
+      var rest = [];
+      allProfiles.forEach(function(p, idx) { if (!placed[idx]) rest.push(idx); });
+      if (rest.length) root.appendChild(buildGroup("其他", rest));
+      updateProfileCount(-1);
+    }
+
+    function buildGroup(title, idxList) {
+      var g = document.createElement("div");
+      g.className = "pgroup";
+      var t = document.createElement("div");
+      t.className = "pgroup-title";
+      t.textContent = title;
+      var grid = document.createElement("div");
+      grid.className = "profile-grid";
+      idxList.forEach(function(idx) { grid.appendChild(buildCard(allProfiles[idx], idx)); });
+      g.appendChild(t);
+      g.appendChild(grid);
+      return g;
+    }
+
+    function buildCard(p, idx) {
+      p = p || {};
+      var isExp = p.category === "实验性";
+      var card = document.createElement("div");
+      card.className = "profile-card" + (isExp ? " exp" : "");
+      card.dataset.profile = p.display_name || ("profile-" + idx);
+      card.dataset.name = p.display_name || "";
+      card.dataset.brand = p.brand || "";
+      card.dataset.idx = String(idx);
+      var pn = document.createElement("div");
+      pn.className = "pn";
+      pn.textContent = p.display_name || "未知设备";
+      var ps = document.createElement("div");
+      ps.className = "ps";
+      var status = isExp ? "非官方支持 · 需第三方 App" : (p.needs_app_config ? "需手机 App 配置" : "即连即用");
+      ps.textContent = p.brand ? p.brand + " · " + status : status;
+      card.appendChild(pn);
+      card.appendChild(ps);
+      if (isExp) {
+        var flag = document.createElement("span");
+        flag.className = "exp-flag";
+        flag.textContent = "⚠ 非官方";
+        card.appendChild(flag);
+      }
+      card.onclick = function() {
+        document.querySelectorAll(".profile-card").forEach(function(c) { c.classList.remove("sel"); });
+        card.classList.add("sel");
+        renderGuide(p);
+      };
+      return card;
+    }
+
+    // 设置引导：setup_steps + 配套 App + known_issues + troubleshooting
+    // 所有字段均做空值守卫，缺失/为空时优雅降级，不抛 JS 错误
+    function renderGuide(p) {
+      p = p || {};
+      var guide = document.getElementById("setupGuide");
+      var steps = Array.isArray(p.setup_steps) ? p.setup_steps : [];
+      var issues = Array.isArray(p.known_issues) ? p.known_issues : [];
+      var fixes = Array.isArray(p.troubleshooting) ? p.troubleshooting : [];
+      var app = p.official_app || "";
+
+      guide.innerHTML = "";
+      var head = document.createElement("div");
+      head.className = "guide-head";
+      var name = document.createElement("span");
+      name.className = "guide-name";
+      name.textContent = p.display_name || "设备";
+      head.appendChild(name);
+      var tagText = [p.brand, p.category].filter(function(x) { return !!x; }).join(" · ");
+      if (tagText) {
+        var tag = document.createElement("span");
+        tag.className = "guide-tag";
+        tag.textContent = tagText;
+        head.appendChild(tag);
+      }
+      if (app) {
+        var appEl = document.createElement("span");
+        appEl.className = "guide-app";
+        appEl.textContent = "配套 App：" + app;
+        head.appendChild(appEl);
+      }
+      guide.appendChild(head);
+
+      if (steps.length) {
+        var wrap = document.createElement("div");
+        wrap.className = "guide-steps";
+        steps.forEach(function(s, i) {
+          var row = document.createElement("div");
+          row.className = "gs";
+          var gi = document.createElement("span");
+          gi.className = "gi";
+          gi.textContent = String(i + 1);
+          var gt = document.createElement("span");
+          gt.textContent = s;
+          row.appendChild(gi);
+          row.appendChild(gt);
+          wrap.appendChild(row);
+        });
+        guide.appendChild(wrap);
+      }
+
+      if (issues.length) {
+        var warn = document.createElement("div");
+        warn.className = "warn";
+        warn.textContent = "⚠ " + issues.join("；");
+        guide.appendChild(warn);
+      }
+
+      if (fixes.length) {
+        var fix = document.createElement("div");
+        fix.className = "guide-fix";
+        var ft = document.createElement("div");
+        ft.className = "guide-fix-title";
+        ft.textContent = "连不上？试试：";
+        fix.appendChild(ft);
+        fixes.forEach(function(f) {
+          var fx = document.createElement("div");
+          fx.className = "fx";
+          fx.textContent = f;
+          fix.appendChild(fx);
+        });
+        guide.appendChild(fix);
+      }
+
+      guide.classList.add("show");
+    }
+
+    // 实时搜索：按 display_name / brand 过滤（大小写不敏感），空组自动隐藏
+    document.getElementById("profileSearch").addEventListener("input", function() {
+      var q = this.value.trim().toLowerCase();
+      var visible = 0;
+      document.querySelectorAll("#profileGroups .pgroup").forEach(function(g) {
+        var n = 0;
+        g.querySelectorAll(".profile-card").forEach(function(c) {
+          var hay = ((c.dataset.name || "") + " " + (c.dataset.brand || "")).toLowerCase();
+          var ok = !q || hay.indexOf(q) !== -1;
+          c.style.display = ok ? "" : "none";
+          if (ok) n++;
+        });
+        g.style.display = n ? "" : "none";
+        visible += n;
+      });
+      document.getElementById("noMatch").style.display = (q && !visible) ? "block" : "none";
+      updateProfileCount(q ? visible : -1);
+    });
+
+    function updateProfileCount(filtered) {
+      var el = document.getElementById("profileCount");
+      var total = allProfiles.length;
+      if (!el || !total) return;
+      el.textContent = (filtered >= 0) ? ("匹配 " + filtered + " / " + total) : ("共 " + total + " 款预设");
+    }
 
     // 模拟源卡片点击
     document.querySelector('[data-profile="mock"]').onclick = function() {
