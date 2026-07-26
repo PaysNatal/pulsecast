@@ -653,7 +653,7 @@ pub async fn run_server(opts: Opts) {
     }
 
     let app = {
-        let mut r = Router::new()
+        let r = Router::new()
             .route("/", get(root_handler))
             .route("/ws", get(ws_handler))
             .route("/settings", get(settings_handler))
@@ -668,9 +668,7 @@ pub async fn run_server(opts: Opts) {
             .route("/api/highlights/card/{index}", get(highlights_card_handler))
             .route("/api/ble/profiles", get(ble_profiles_handler));
         #[cfg(feature = "ble")]
-        {
-            r = r.route("/api/ble/scan", get(scan_handler));
-        }
+        let r = r.route("/api/ble/scan", get(scan_handler));
         r.layer(axum::middleware::from_fn_with_state(state.clone(), token_guard))
             .layer(axum::middleware::from_fn(origin_guard))
             .with_state(state.clone())
@@ -744,7 +742,9 @@ async fn css_handler(State(state): State<AppState>) -> Response {
 #[derive(Deserialize)]
 struct SourceReq {
     mode: String,
+    // ble 特性下传给 set_device；未启用 ble 时仅保留 API 契约字段
     #[serde(default)]
+    #[cfg_attr(not(feature = "ble"), allow(dead_code))]
     device: Option<String>,
 }
 
